@@ -1,0 +1,151 @@
+{
+  "name": "@lpm.dev/neo.highlight",
+  "version": "1.0.0",
+  "description": "Zero-dependency syntax highlighter - Fast, modern, tree-shakeable with React adapter and auto-scan support",
+  "type": "module",
+  "author": "neo",
+  "license": "MIT",
+  "sideEffects": false,
+  "keywords": [
+    "syntax",
+    "highlight",
+    "code",
+    "prism",
+    "highlightjs",
+    "react",
+    "typescript",
+    "esm",
+    "tree-shakeable",
+    "zero-dependency",
+    "modern",
+    "neo"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ne-ooo/neo.highlight"
+  },
+  "homepage": "https://github.com/ne-ooo/neo.highlight#readme",
+  "bugs": {
+    "url": "https://github.com/ne-ooo/neo.highlight/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/react/index.d.ts",
+        "default": "./dist/react/index.js"
+      },
+      "require": {
+        "types": "./dist/react/index.d.cts",
+        "default": "./dist/react/index.cjs"
+      }
+    },
+    "./vanilla": {
+      "import": {
+        "types": "./dist/vanilla/index.d.ts",
+        "default": "./dist/vanilla/index.js"
+      },
+      "require": {
+        "types": "./dist/vanilla/index.d.cts",
+        "default": "./dist/vanilla/index.cjs"
+      }
+    },
+    "./grammars": {
+      "import": {
+        "types": "./dist/grammars/index.d.ts",
+        "default": "./dist/grammars/index.js"
+      },
+      "require": {
+        "types": "./dist/grammars/index.d.cts",
+        "default": "./dist/grammars/index.cjs"
+      }
+    },
+    "./grammars/*": {
+      "import": {
+        "types": "./dist/grammars/*.d.ts",
+        "default": "./dist/grammars/*.js"
+      },
+      "require": {
+        "types": "./dist/grammars/*.d.cts",
+        "default": "./dist/grammars/*.cjs"
+      }
+    },
+    "./themes": {
+      "import": {
+        "types": "./dist/themes/index.d.ts",
+        "default": "./dist/themes/index.js"
+      },
+      "require": {
+        "types": "./dist/themes/index.d.cts",
+        "default": "./dist/themes/index.cjs"
+      }
+    },
+    "./themes/*": {
+      "import": {
+        "types": "./dist/themes/*.d.ts",
+        "default": "./dist/themes/*.js"
+      },
+      "require": {
+        "types": "./dist/themes/*.d.cts",
+        "default": "./dist/themes/*.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    ".lpm",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "bench": "vitest bench bench/",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm clean && pnpm build && pnpm test"
+  },
+  "peerDependencies": {
+    "react": ">=17.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@testing-library/react": "^14.0.0",
+    "@types/node": "^18.19.0",
+    "@types/prismjs": "^1.26.6",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "highlight.js": "^11.11.1",
+    "jsdom": "^24.0.0",
+    "prismjs": "^1.30.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0"
+  }
+}

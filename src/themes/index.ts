@@ -1,0 +1,10 @@
+export { githubDark } from "./github-dark";
+export { githubLight } from "./github-light";
+export { oneDark } from "./one-dark";
+export { dracula } from "./dracula";
+export { nord } from "./nord";
+export { monokai } from "./monokai";
+export { solarizedLight } from "./solarized-light";
+export { solarizedDark } from "./solarized-dark";
+export { nightOwl } from "./night-owl";
+export { tokyoNight } from "./tokyo-night";

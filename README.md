@@ -1,0 +1,590 @@
+# @lpm.dev/neo.highlight
+
+**Modern, zero-dependency syntax highlighter for the web.**
+
+[![npm version](https://img.shields.io/npm/v/@lpm.dev/neo.highlight)](https://www.npmjs.com/package/@lpm.dev/neo.highlight)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@lpm.dev/neo.highlight)](https://bundlephobia.com/package/@lpm.dev/neo.highlight)
+[![license](https://img.shields.io/npm/l/@lpm.dev/neo.highlight)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org/)
+[![zero dependencies](https://img.shields.io/badge/dependencies-0-green)]()
+
+---
+
+## Why This?
+
+Every existing syntax highlighter requires tradeoffs -- bloated bundles, missing TypeScript support, runtime dependencies, or no tree-shaking. `@lpm.dev/neo.highlight` eliminates all of them.
+
+| Feature | neo.highlight | Prism.js | highlight.js | Shiki | react-syntax-highlighter | sugar-high |
+|---|---|---|---|---|---|---|
+| ESM native | Yes | No | Partial | Yes | No | Yes |
+| TypeScript source | Yes | No | No | Yes | No | Yes |
+| Zero dependencies | Yes | Yes | Yes | No (oniguruma) | No (7+ deps) | Yes |
+| Bundle size (core) | ~3.8 KB | ~6 KB | ~30 KB | ~1 MB+ | ~40 KB+ | ~3 KB |
+| Tree-shakeable | Yes | No | No | No | No | Partial |
+| React adapter | Built-in | Plugin | Plugin | Plugin | Core | No |
+| Auto-scan (DOM) | Built-in | Built-in | Built-in | No | No | No |
+| MutationObserver | Built-in | No | No | No | No | No |
+| SSR support | Yes | Manual | Manual | Yes | Yes | Yes |
+| Languages | 30 | 290+ | 190+ | 190+ | 190+ | ~10 |
+| Themes | 10 | 8 | 90+ | 30+ | 80+ | 1 |
+| CSS custom properties | Yes | No | No | No | No | Yes |
+
+---
+
+## Key Features
+
+- **Zero dependencies** -- nothing to install, nothing to break
+- **~3.8 KB core** gzipped -- load only what you use
+- **30 languages** with accurate grammar definitions
+- **10 themes** including GitHub Dark, Dracula, Nord, Tokyo Night
+- **React + Vanilla JS** -- first-class adapters for both
+- **Component mode** -- `<Highlight>` for explicit code blocks
+- **Auto-scan mode** -- `<AutoHighlight>` / `autoHighlight()` finds and highlights `<code>` elements
+- **MutationObserver** -- watches for dynamically added code blocks in SPAs
+- **CSS custom properties** -- theme values exposed as `--neo-hl-*` variables
+- **Tree-shakeable** -- import only the languages and themes you need
+- **SSR support** -- `getThemeStylesheet()` generates CSS at build time
+- **Full TypeScript** -- strict mode, every type exported, zero `any`
+
+---
+
+## Quick Start
+
+### Installation
+
+```bash
+lpm install @lpm.dev/neo.highlight
+```
+
+### React
+
+```tsx
+import { Highlight } from "@lpm.dev/neo.highlight/react";
+import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
+import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
+
+function App() {
+  return (
+    <Highlight language={javascript} theme={githubDark}>
+      {`const greeting = "Hello, world!";
+console.log(greeting);`}
+    </Highlight>
+  );
+}
+```
+
+### Vanilla JS
+
+```ts
+import { highlight } from "@lpm.dev/neo.highlight/vanilla";
+import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
+import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
+
+const html = highlight(
+  `const greeting = "Hello, world!";`,
+  javascript,
+  { theme: githubDark, lineNumbers: true },
+);
+
+document.getElementById("code").innerHTML = html;
+```
+
+---
+
+## React API
+
+Import from `@lpm.dev/neo.highlight/react`.
+
+### `<Highlight>`
+
+Renders a single code block with syntax highlighting.
+
+```tsx
+import { Highlight } from "@lpm.dev/neo.highlight/react";
+import { typescript } from "@lpm.dev/neo.highlight/grammars/typescript";
+import { dracula } from "@lpm.dev/neo.highlight/themes/dracula";
+
+<Highlight
+  language={typescript}
+  theme={dracula}
+  showLineNumbers
+  highlightLines={[2, 3]}
+  className="my-code-block"
+>
+  {`interface User {
+  name: string;
+  email: string;
+}`}
+</Highlight>
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `children` | `string` | required | Source code to highlight |
+| `language` | `Grammar` | required | Grammar definition for the language |
+| `theme` | `Theme \| string` | from context | Theme object or registered theme name |
+| `showLineNumbers` | `boolean` | from context | Show line numbers |
+| `highlightLines` | `number[]` | -- | Lines to highlight (1-indexed) |
+| `classPrefix` | `string` | `"neo-hl"` | CSS class prefix |
+| `className` | `string` | -- | Additional CSS class for the wrapper |
+| `style` | `CSSProperties` | -- | Inline styles for the wrapper |
+
+### `<AutoHighlight>`
+
+Scans its children for `<code>` elements and highlights them automatically. Uses `MutationObserver` to watch for dynamically added content.
+
+```tsx
+import { AutoHighlight } from "@lpm.dev/neo.highlight/react";
+import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
+import { python } from "@lpm.dev/neo.highlight/grammars/python";
+import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
+
+<AutoHighlight
+  languages={[javascript, python]}
+  theme={githubDark}
+>
+  <article dangerouslySetInnerHTML={{ __html: markdownHtml }} />
+</AutoHighlight>
+```
+
+Language is detected from class names (`language-js`, `lang-python`) or the `data-language` attribute on the `<code>` or `<pre>` element.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `children` | `ReactNode` | required | Content containing `<code>` elements |
+| `languages` | `Grammar[]` | from context | Grammars available for detection |
+| `theme` | `Theme \| string` | from context | Theme object or registered theme name |
+| `selector` | `string` | `"pre code"` | CSS selector for code elements |
+| `lineNumbers` | `boolean` | from context | Show line numbers |
+| `classPrefix` | `string` | `"neo-hl"` | CSS class prefix |
+| `className` | `string` | -- | Additional CSS class for the wrapper |
+| `style` | `CSSProperties` | -- | Inline styles for the wrapper |
+
+### `<HighlightProvider>`
+
+Provides default theme, languages, and options to all nested highlight components via React context. Avoids repeating props on every component.
+
+```tsx
+import { HighlightProvider, Highlight, AutoHighlight } from "@lpm.dev/neo.highlight/react";
+import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
+import { python } from "@lpm.dev/neo.highlight/grammars/python";
+import { tokyoNight } from "@lpm.dev/neo.highlight/themes/tokyo-night";
+
+function App() {
+  return (
+    <HighlightProvider
+      theme={tokyoNight}
+      languages={[javascript, python]}
+      lineNumbers
+    >
+      {/* All children inherit theme, languages, and lineNumbers */}
+      <Highlight language={javascript}>
+        {`const x = 42;`}
+      </Highlight>
+
+      <AutoHighlight>
+        <div dangerouslySetInnerHTML={{ __html: blogContent }} />
+      </AutoHighlight>
+    </HighlightProvider>
+  );
+}
+```
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `children` | `ReactNode` | required | Child components |
+| `theme` | `Theme \| string` | -- | Default theme for all children |
+| `languages` | `Grammar[]` | `[]` | Default grammars for auto-highlight |
+| `classPrefix` | `string` | `"neo-hl"` | Default CSS class prefix |
+| `lineNumbers` | `boolean` | `false` | Default line numbers setting |
+
+### `useHighlight`
+
+Hook for full control over tokenization and rendering. Returns both the raw token array and the rendered HTML string, both memoized.
+
+```tsx
+import { useHighlight } from "@lpm.dev/neo.highlight/react";
+import { rust } from "@lpm.dev/neo.highlight/grammars/rust";
+import { nord } from "@lpm.dev/neo.highlight/themes/nord";
+
+function CodeBlock({ code }: { code: string }) {
+  const { tokens, html } = useHighlight(code, rust, {
+    theme: nord,
+    lineNumbers: true,
+    highlightLines: [1],
+    wrapCode: true,
+  });
+
+  // Use `html` directly
+  return <div dangerouslySetInnerHTML={{ __html: html }} />;
+
+  // Or iterate over `tokens` for custom rendering
+}
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|---|---|---|
+| `code` | `string` | Source code to highlight |
+| `language` | `Grammar` | Grammar definition |
+| `options` | `UseHighlightOptions` | Theme, line numbers, highlight lines, class prefix, wrapCode |
+
+**Returns:** `{ tokens: Token[], html: string }`
+
+### `useHighlightContext`
+
+Access the current `HighlightProvider` context values directly.
+
+```tsx
+import { useHighlightContext } from "@lpm.dev/neo.highlight/react";
+
+function DebugInfo() {
+  const { theme, languages, classPrefix, lineNumbers } = useHighlightContext();
+  // ...
+}
+```
+
+---
+
+## Vanilla API
+
+Import from `@lpm.dev/neo.highlight/vanilla`.
+
+### `highlight(code, language, options?)`
+
+Highlight source code and return an HTML string.
+
+```ts
+import { highlight } from "@lpm.dev/neo.highlight/vanilla";
+import { python } from "@lpm.dev/neo.highlight/grammars/python";
+import { oneDark } from "@lpm.dev/neo.highlight/themes/one-dark";
+
+const html = highlight(
+  `def greet(name):
+    return f"Hello, {name}!"`,
+  python,
+  {
+    theme: oneDark,
+    lineNumbers: true,
+    highlightLines: [2],
+    wrapCode: true,
+  },
+);
+```
+
+**Options:**
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `theme` | `Theme \| string` | -- | Theme object or registered name |
+| `lineNumbers` | `boolean` | `false` | Show line numbers |
+| `highlightLines` | `number[]` | -- | Lines to highlight (1-indexed) |
+| `classPrefix` | `string` | `"neo-hl"` | CSS class prefix |
+| `wrapCode` | `boolean` | `true` | Wrap output in `<pre><code>` |
+
+### `autoHighlight(options)`
+
+Scan the page for code blocks and optionally observe for dynamically added ones. Returns a cleanup function.
+
+```ts
+import { autoHighlight } from "@lpm.dev/neo.highlight/vanilla";
+import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
+import { typescript } from "@lpm.dev/neo.highlight/grammars/typescript";
+import { css } from "@lpm.dev/neo.highlight/grammars/css";
+import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
+
+// Highlight all existing code blocks and watch for new ones
+const cleanup = autoHighlight({
+  languages: [javascript, typescript, css],
+  theme: githubDark,
+  observe: true,           // Use MutationObserver for SPAs
+  selector: "pre code",    // CSS selector to match
+  lineNumbers: false,
+});
+
+// Later, to stop observing:
+cleanup();
+```
+
+Language detection reads from the `<code>` or `<pre>` element:
+- `class="language-javascript"` or `class="lang-js"`
+- `data-language="javascript"`
+
+### `scan(options)`
+
+One-shot scan. Finds all matching elements and highlights them. Returns the number of elements highlighted.
+
+```ts
+import { scan } from "@lpm.dev/neo.highlight/vanilla";
+import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
+
+const count = scan({
+  languages: [javascript],
+  selector: "pre code",
+  container: document.getElementById("article"),
+});
+
+console.log(`Highlighted ${count} code blocks`);
+```
+
+### `observe(options)`
+
+Continuous scan. Highlights existing elements, then uses `MutationObserver` to watch for new ones. Returns a cleanup function.
+
+```ts
+import { observe } from "@lpm.dev/neo.highlight/vanilla";
+import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
+import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
+
+const disconnect = observe({
+  languages: [javascript],
+  theme: githubDark,
+  container: document.body,
+});
+
+// Stop observing when done:
+disconnect();
+```
+
+---
+
+## Languages
+
+30 languages with tree-shakeable imports. Import only what you need.
+
+```ts
+// Import a single language
+import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
+
+// Or import several
+import { javascript, typescript, python } from "@lpm.dev/neo.highlight/grammars";
+```
+
+| Language | Import | Aliases |
+|---|---|---|
+| JavaScript | `javascript` | `js`, `mjs`, `cjs` |
+| TypeScript | `typescript` | `ts`, `mts`, `cts` |
+| Python | `python` | `py` |
+| JSX | `jsx` | `react` |
+| TSX | `tsx` | -- |
+| HTML | `html` | `htm`, `xml`, `svg`, `mathml` |
+| CSS | `css` | -- |
+| SCSS | `scss` | `sass` |
+| JSON | `json` | `jsonc`, `json5` |
+| YAML | `yaml` | `yml` |
+| Markdown | `markdown` | `md`, `mdx` |
+| GraphQL | `graphql` | `gql` |
+| Ruby | `ruby` | `rb` |
+| Go | `go` | `golang` |
+| Rust | `rust` | `rs` |
+| Java | `java` | -- |
+| Kotlin | `kotlin` | `kt`, `kts` |
+| Swift | `swift` | -- |
+| PHP | `php` | -- |
+| C | `c` | `h` |
+| C++ | `cpp` | `c++`, `cxx`, `cc`, `hpp`, `hxx`, `hh` |
+| C# | `csharp` | `cs`, `c#`, `dotnet` |
+| Bash | `bash` | `zsh` |
+| Shell | `shell` | `sh`, `posix-shell` |
+| Dockerfile | `docker` | `dockerfile` |
+| SQL | `sql` | `mysql`, `pgsql`, `postgres`, `postgresql`, `sqlite`, `plsql` |
+| TOML | `toml` | -- |
+| INI | `ini` | `conf`, `cfg`, `env`, `properties` |
+| Diff | `diff` | `patch` |
+| Regex | `regex` | `regexp` |
+
+---
+
+## Themes
+
+10 built-in themes with tree-shakeable imports.
+
+```ts
+// Import a single theme
+import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
+
+// Or import several
+import { githubDark, dracula, nord } from "@lpm.dev/neo.highlight/themes";
+```
+
+| Theme | Import | Description |
+|---|---|---|
+| GitHub Dark | `githubDark` | GitHub's dark mode color scheme |
+| GitHub Light | `githubLight` | GitHub's light mode color scheme |
+| One Dark | `oneDark` | Atom One Dark theme |
+| Dracula | `dracula` | Dracula color scheme |
+| Nord | `nord` | Arctic, north-bluish color palette |
+| Monokai | `monokai` | Classic Monokai color scheme |
+| Solarized Light | `solarizedLight` | Ethan Schoonover's Solarized (light) |
+| Solarized Dark | `solarizedDark` | Ethan Schoonover's Solarized (dark) |
+| Night Owl | `nightOwl` | Sarah Drasner's Night Owl theme |
+| Tokyo Night | `tokyoNight` | Inspired by Tokyo city lights at night |
+
+---
+
+## Custom Themes
+
+Create a custom theme by defining a `Theme` object:
+
+```ts
+import type { Theme } from "@lpm.dev/neo.highlight";
+
+const myTheme: Theme = {
+  name: "my-theme",
+  background: "#1a1b26",
+  foreground: "#c0caf5",
+  selection: "#33467c",
+  lineNumber: "#3b4261",
+  lineNumberActive: "#c0caf5",
+  lineHighlight: "#292e42",
+  tokenColors: {
+    comment: "#565f89",
+    keyword: "#9d7cd8",
+    string: "#9ece6a",
+    number: "#ff9e64",
+    boolean: "#ff9e64",
+    function: "#7aa2f7",
+    operator: "#89ddff",
+    punctuation: "#c0caf5",
+    variable: "#c0caf5",
+    "class-name": "#f7768e",
+    constant: "#ff9e64",
+    property: "#73daca",
+    tag: "#f7768e",
+    "attr-name": "#7aa2f7",
+    "attr-value": "#9ece6a",
+    selector: "#9ece6a",
+    regex: "#b4f9f8",
+    builtin: "#7aa2f7",
+    important: "#f7768e",
+    inserted: "#9ece6a",
+    deleted: "#f7768e",
+    changed: "#ff9e64",
+    namespace: "#9d7cd8",
+    parameter: "#e0af68",
+    interpolation: "#73daca",
+    "template-string": "#9ece6a",
+    decorator: "#9d7cd8",
+  },
+};
+```
+
+Theme colors are applied as inline CSS custom properties (`--neo-hl-*`) and can be overridden in your own stylesheets:
+
+```css
+.neo-hl {
+  --neo-hl-bg: #1e1e2e;
+  --neo-hl-fg: #cdd6f4;
+  --neo-hl-keyword: #cba6f7;
+  --neo-hl-string: #a6e3a1;
+}
+```
+
+---
+
+## SSR Support
+
+Both the React and vanilla APIs work in server-side rendering environments out of the box. The `highlight()` function and `<Highlight>` component produce static HTML strings with inline styles -- no client-side JavaScript is required to display the highlighted code.
+
+For server rendering, use `getThemeStylesheet()` to generate a CSS stylesheet string that can be injected into a `<style>` tag:
+
+```ts
+import { getThemeStylesheet } from "@lpm.dev/neo.highlight";
+import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
+
+const css = getThemeStylesheet(githubDark);
+// Inject into <style> tag in your HTML template
+```
+
+In a Next.js or similar framework:
+
+```tsx
+import { getThemeStylesheet } from "@lpm.dev/neo.highlight";
+import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <head>
+        <style dangerouslySetInnerHTML={{ __html: getThemeStylesheet(githubDark) }} />
+      </head>
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+---
+
+## Bundle Size
+
+Every grammar and theme is a separate module. Import only what you need.
+
+| Import | Gzipped |
+|---|---|
+| Core (tokenizer + renderer) | ~3.8 KB |
+| Core + 1 language | ~4.2 KB |
+| React adapter | ~1.2 KB |
+| Vanilla adapter | ~0.8 KB |
+| Single theme | ~0.3 KB |
+| Single grammar (avg) | ~0.4 KB |
+| All 30 grammars | ~12 KB |
+| All 10 themes | ~3 KB |
+
+The `sideEffects: false` flag in `package.json` ensures bundlers tree-shake unused exports.
+
+---
+
+## TypeScript
+
+Written in strict TypeScript. All types are exported from the main entry point:
+
+```ts
+import type {
+  Token,
+  TokenNode,
+  TokenPattern,
+  TokenDefinition,
+  Grammar,
+  GrammarTokens,
+  Theme,
+  ThemeTokenColors,
+  RenderOptions,
+  ScanOptions,
+  GrammarRegistry,
+} from "@lpm.dev/neo.highlight";
+```
+
+React-specific types:
+
+```ts
+import type {
+  HighlightProps,
+  AutoHighlightProps,
+  HighlightProviderProps,
+  UseHighlightOptions,
+  UseHighlightResult,
+} from "@lpm.dev/neo.highlight/react";
+```
+
+Vanilla-specific types:
+
+```ts
+import type {
+  HighlightOptions,
+  ScanOptions,
+} from "@lpm.dev/neo.highlight/vanilla";
+```
+
+---
+
+## Acknowledgments
+
+This package is inspired by [Prism.js](https://prismjs.com/) by Lea Verou and [highlight.js](https://highlightjs.org/) by Ivan Sagalaev. We are grateful for their work that has served the web development community for years. This library builds on their foundational ideas with a modern, zero-dependency, TypeScript-first approach.
