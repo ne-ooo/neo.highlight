@@ -1,7 +1,7 @@
 ---
 name: anti-patterns
 description: Common mistakes when using neo.highlight — auto-detect unreliable for short/ambiguous code, grammar token order matters, greedy flag omission breaks multi-line tokens, applyTheme no-op in SSR, MutationObserver cleanup leak, detect cache keyed on first 500 chars, React context silent defaults, scan selector mismatch
-version: "1.0.0"
+version: "1.0.1"
 globs:
   - "**/*.ts"
   - "**/*.tsx"
@@ -17,13 +17,13 @@ Wrong:
 
 ```typescript
 // AI relies on auto-detect for everything
-import { detectLanguage } from '@lpm.dev/neo.highlight'
-import { javascript, python, json } from '@lpm.dev/neo.highlight/grammars'
+import { detectLanguage } from "@lpm.dev/neo.highlight";
+import { javascript, python, json } from "@lpm.dev/neo.highlight/grammars";
 
-const result = detectLanguage('x = 1', [javascript, python])
+const result = detectLanguage("x = 1", [javascript, python]);
 // Could return either — too little text for keyword density scoring
 
-const result2 = detectLanguage('{"key": "value"}', [javascript, json])
+const result2 = detectLanguage('{"key": "value"}', [javascript, json]);
 // Ambiguous — JSON is valid JavaScript, scores overlap
 ```
 
@@ -31,11 +31,11 @@ Correct:
 
 ```typescript
 // Use explicit language hints whenever available
-import { highlight } from '@lpm.dev/neo.highlight/vanilla'
-import { python } from '@lpm.dev/neo.highlight/grammars/python'
+import { highlight } from "@lpm.dev/neo.highlight/vanilla";
+import { python } from "@lpm.dev/neo.highlight/grammars/python";
 
 // Preferred: specify the language directly
-const html = highlight(code, python, { theme: githubDark })
+const html = highlight(code, python, { theme: githubDark });
 
 // For DOM scanning: use class or data attributes
 // <code class="language-python">x = 1</code>
@@ -46,6 +46,7 @@ const html = highlight(code, python, { theme: githubDark })
 ```
 
 Auto-detect scores by keyword density (35%), coverage (30%), token diversity (20%), and high-value tokens (15%). Known failure cases:
+
 - **Short snippets (< 20 chars)** — not enough text for reliable scoring
 - **Ambiguous languages** — JSON/JS, C/C++, CSS/SCSS score similarly
 - **Plain text** — may trigger false positives if words like `function`, `class`, `import` appear
@@ -61,13 +62,13 @@ Wrong:
 ```typescript
 // AI defines a custom grammar with operator before keyword
 const myGrammar: Grammar = {
-  name: 'my-lang',
+  name: "my-lang",
   tokens: {
-    operator: /[=<>!]+/,           // Matched first!
+    operator: /[=<>!]+/, // Matched first!
     keyword: /\b(?:if|else|for)\b/, // Never reached for overlapping text
     string: /"[^"]*"/,
   },
-}
+};
 // The keyword 'if' might not match if operator patterns consume '=' nearby first
 ```
 
@@ -76,16 +77,16 @@ Correct:
 ```typescript
 // Put more specific patterns first, broader patterns last
 const myGrammar: Grammar = {
-  name: 'my-lang',
+  name: "my-lang",
   tokens: {
-    comment: /\/\/.*/,               // Most specific — match first
+    comment: /\/\/.*/, // Most specific — match first
     string: { pattern: /"[^"]*"/, greedy: true },
-    keyword: /\b(?:if|else|for)\b/,  // Before operator
+    keyword: /\b(?:if|else|for)\b/, // Before operator
     number: /\b\d+(?:\.\d+)?\b/,
-    operator: /[=<>!]+/,             // Broad — match last
+    operator: /[=<>!]+/, // Broad — match last
     punctuation: /[{}();,]/,
   },
-}
+};
 ```
 
 The tokenizer iterates token types in object key insertion order. Earlier patterns are tested first and "consume" their matched text. Later patterns only see remaining unmatched text. Place specific patterns (comments, strings, keywords) before broad ones (operators, punctuation).
@@ -98,12 +99,12 @@ Wrong:
 
 ```typescript
 const grammar: Grammar = {
-  name: 'example',
+  name: "example",
   tokens: {
-    comment: /\/\*[\s\S]*?\*\//,    // No greedy flag
-    string: /"(?:\\[\s\S]|[^"])*"/,  // No greedy flag
+    comment: /\/\*[\s\S]*?\*\//, // No greedy flag
+    string: /"(?:\\[\s\S]|[^"])*"/, // No greedy flag
   },
-}
+};
 // Multi-line comments/strings may be split by other token patterns
 // that match text inside them before the full match is found
 ```
@@ -112,12 +113,12 @@ Correct:
 
 ```typescript
 const grammar: Grammar = {
-  name: 'example',
+  name: "example",
   tokens: {
     comment: { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
     string: { pattern: /"(?:\\[\s\S]|[^"])*"/, greedy: true },
   },
-}
+};
 // greedy: true re-matches against the full string, preventing
 // partial matches from fragmenting the token
 ```
@@ -132,12 +133,12 @@ Wrong:
 
 ```typescript
 // AI uses applyTheme() in a Next.js Server Component
-import { applyTheme } from '@lpm.dev/neo.highlight'
-import { githubDark } from '@lpm.dev/neo.highlight/themes/github-dark'
+import { applyTheme } from "@lpm.dev/neo.highlight";
+import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
 
 // Server-side
-applyTheme(githubDark) // Does nothing — checks typeof document
-const html = renderToHTML(tokens, { theme: githubDark })
+applyTheme(githubDark); // Does nothing — checks typeof document
+const html = renderToHTML(tokens, { theme: githubDark });
 // HTML renders without any theme styles!
 ```
 
@@ -145,19 +146,23 @@ Correct:
 
 ```typescript
 // SSR: generate CSS string for <head> injection
-import { getThemeStylesheet, renderToHTML, tokenize } from '@lpm.dev/neo.highlight'
-import { githubDark } from '@lpm.dev/neo.highlight/themes/github-dark'
+import {
+  getThemeStylesheet,
+  renderToHTML,
+  tokenize,
+} from "@lpm.dev/neo.highlight";
+import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
 
-const css = getThemeStylesheet(githubDark)
-const html = renderToHTML(tokens, { theme: githubDark })
+const css = getThemeStylesheet(githubDark);
+const html = renderToHTML(tokens, { theme: githubDark });
 
 // Inject both into the page
 // <style>{css}</style>
 // <div dangerouslySetInnerHTML={{ __html: html }} />
 
 // Client-side only: applyTheme() injects a <style> tag
-if (typeof document !== 'undefined') {
-  const cleanup = applyTheme(githubDark)
+if (typeof document !== "undefined") {
+  const cleanup = applyTheme(githubDark);
   // cleanup() removes the <style> tag
 }
 ```
@@ -172,13 +177,13 @@ Wrong:
 
 ```tsx
 // AI sets up observe() without cleanup
-import { observe } from '@lpm.dev/neo.highlight/vanilla'
+import { observe } from "@lpm.dev/neo.highlight/vanilla";
 
 function initHighlighting() {
   observe({
     languages: [javascript, typescript],
     theme: githubDark,
-  })
+  });
   // MutationObserver is never disconnected
   // Runs indefinitely, processing every DOM mutation
 }
@@ -188,21 +193,21 @@ Correct:
 
 ```tsx
 // Always store and call the cleanup function
-import { observe } from '@lpm.dev/neo.highlight/vanilla'
+import { observe } from "@lpm.dev/neo.highlight/vanilla";
 
 const cleanup = observe({
   languages: [javascript, typescript],
   theme: githubDark,
-})
+});
 
 // On page navigation, component unmount, or route change:
-cleanup() // Disconnects MutationObserver
+cleanup(); // Disconnects MutationObserver
 
 // React: use useEffect cleanup
 useEffect(() => {
-  const cleanup = observe({ languages, theme: githubDark })
-  return cleanup
-}, [])
+  const cleanup = observe({ languages, theme: githubDark });
+  return cleanup;
+}, []);
 ```
 
 `observe()` and `autoHighlight({ observe: true })` create a MutationObserver that watches for added nodes matching the selector. Without calling the returned cleanup function, the observer runs indefinitely, processing every DOM mutation even after the relevant content is removed. The `<AutoHighlight>` React component handles cleanup automatically on unmount.
@@ -215,15 +220,15 @@ Wrong:
 
 ```typescript
 // AI expects different results for files with same beginning
-import { detectLanguage } from '@lpm.dev/neo.highlight'
+import { detectLanguage } from "@lpm.dev/neo.highlight";
 
-const header = '// Common license header\n// MIT License...\n'.repeat(20)
+const header = "// Common license header\n// MIT License...\n".repeat(20);
 
-const jsCode = header + 'function main() { console.log("js") }'
-const tsCode = header + 'function main(): void { console.log("ts") }'
+const jsCode = header + 'function main() { console.log("js") }';
+const tsCode = header + 'function main(): void { console.log("ts") }';
 
-detectLanguage(jsCode, [javascript, typescript])  // Cached result
-detectLanguage(tsCode, [javascript, typescript])  // Returns SAME result!
+detectLanguage(jsCode, [javascript, typescript]); // Cached result
+detectLanguage(tsCode, [javascript, typescript]); // Returns SAME result!
 // First 500 chars are identical → cache hit → wrong language for second call
 ```
 
@@ -231,11 +236,11 @@ Correct:
 
 ```typescript
 // Option 1: Disable cache for dynamic content
-detectLanguage(code, grammars, { noCache: true })
+detectLanguage(code, grammars, { noCache: true });
 
 // Option 2: Clear cache between batches
-import { clearDetectCache } from '@lpm.dev/neo.highlight'
-clearDetectCache()
+import { clearDetectCache } from "@lpm.dev/neo.highlight";
+clearDetectCache();
 
 // Option 3: Don't rely on auto-detect for similar files
 // Specify language explicitly when possible
@@ -251,16 +256,18 @@ Wrong:
 
 ```tsx
 // AI assumes useHighlightContext() will error without provider
-import { useHighlightContext } from '@lpm.dev/neo.highlight/react'
+import { useHighlightContext } from "@lpm.dev/neo.highlight/react";
 
 function MyComponent() {
-  const { theme, languages } = useHighlightContext()
+  const { theme, languages } = useHighlightContext();
   // theme is undefined, languages is empty array
   // No error thrown — silently uses defaults
 
-  return <Highlight language={javascript} theme={theme}>
-    {code}
-  </Highlight>
+  return (
+    <Highlight language={javascript} theme={theme}>
+      {code}
+    </Highlight>
+  );
   // theme is undefined → no styling applied!
 }
 ```
@@ -271,19 +278,19 @@ Correct:
 // Option 1: Always wrap in HighlightProvider
 <HighlightProvider theme={githubDark} languages={[javascript]}>
   <MyComponent />
-</HighlightProvider>
+</HighlightProvider>;
 
 // Option 2: Provide fallbacks when using the context
 function MyComponent() {
-  const { theme } = useHighlightContext()
+  const { theme } = useHighlightContext();
   return (
     <Highlight
       language={javascript}
-      theme={theme ?? githubDark}  // Explicit fallback
+      theme={theme ?? githubDark} // Explicit fallback
     >
       {code}
     </Highlight>
-  )
+  );
 }
 ```
 
@@ -300,8 +307,8 @@ Wrong:
 scan({
   languages: [javascript],
   theme: githubDark,
-  selector: 'pre code',  // Default selector
-})
+  selector: "pre code", // Default selector
+});
 
 // But the HTML uses a different structure:
 // <div class="code-block"><code>const x = 1</code></div>
@@ -315,8 +322,8 @@ Correct:
 scan({
   languages: [javascript],
   theme: githubDark,
-  selector: '.code-block code',  // Match your markup
-})
+  selector: ".code-block code", // Match your markup
+});
 
 // Language hint via class or data attribute
 // <code class="language-javascript">const x = 1</code>
