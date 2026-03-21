@@ -32,8 +32,8 @@ export function renderToHTML(tokens: Token[], options: RenderOptions = {}): stri
 
   if (!wrapCode) return codeHTML;
 
-  // Split into lines for line numbers and line highlighting
-  const lines = codeHTML.split("\n");
+  // Split into lines, properly closing/reopening tags that span multiple lines
+  const lines = splitHTMLIntoLines(codeHTML);
   const highlightSet = highlightLines ? new Set(highlightLines) : null;
   const needsLineWrapping = lineNumbers || highlightSet || diffHighlight;
 
@@ -73,7 +73,7 @@ export function renderToHTML(tokens: Token[], options: RenderOptions = {}): stri
 
         return `<span class="${lineClasses.join(" ")}">${gutterSpan}${numberSpan}<span class="${classPrefix}-line-content">${line}</span></span>`;
       })
-      .join("\n");
+      .join("");
   } else {
     bodyHTML = codeHTML;
   }
@@ -160,6 +160,65 @@ export function getThemeStylesheet(theme: Theme | string, classPrefix = DEFAULT_
 
   const css = getThemeCSS(resolved, classPrefix);
   return css;
+}
+
+/**
+ * Split an HTML string into lines, properly handling tags that span multiple lines.
+ * At each newline boundary, any open tags are closed and reopened on the next line
+ * so that each line is a self-contained HTML fragment with valid nesting.
+ */
+function splitHTMLIntoLines(html: string): string[] {
+  const lines: string[] = [];
+  let currentLine = "";
+  // Stack of open tag strings (e.g. '<span class="neo-hl-keyword">')
+  const openTags: string[] = [];
+
+  let i = 0;
+  while (i < html.length) {
+    if (html[i] === "\n") {
+      // Close all open tags for this line
+      for (let t = openTags.length - 1; t >= 0; t--) {
+        currentLine += "</span>";
+      }
+      lines.push(currentLine);
+      // Start new line and reopen all tags
+      currentLine = "";
+      for (const tag of openTags) {
+        currentLine += tag;
+      }
+      i++;
+    } else if (html[i] === "<") {
+      // Find the end of the tag
+      const closeIdx = html.indexOf(">", i);
+      if (closeIdx === -1) {
+        // Malformed — just append rest
+        currentLine += html.slice(i);
+        break;
+      }
+      const tag = html.slice(i, closeIdx + 1);
+
+      if (tag.startsWith("</")) {
+        // Closing tag — pop from stack
+        openTags.pop();
+        currentLine += tag;
+      } else if (tag.endsWith("/>")) {
+        // Self-closing tag — just append
+        currentLine += tag;
+      } else {
+        // Opening tag — push to stack
+        openTags.push(tag);
+        currentLine += tag;
+      }
+      i = closeIdx + 1;
+    } else {
+      currentLine += html[i];
+      i++;
+    }
+  }
+
+  // Push the last line
+  lines.push(currentLine);
+  return lines;
 }
 
 /**

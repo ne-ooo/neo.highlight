@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { renderToHTML } from "../../../src/core/renderer";
 import { tokenize } from "../../../src/core/tokenizer";
 import { javascript } from "../../../src/grammars/javascript";
+import { css } from "../../../src/grammars/css";
+import { python } from "../../../src/grammars/python";
 import { githubDark } from "../../../src/themes/github-dark";
 import type { Token, TokenNode } from "../../../src/core/types";
 
@@ -142,5 +144,130 @@ describe("renderToHTML", () => {
   it("should handle empty tokens", () => {
     const html = renderToHTML([], { wrapCode: false });
     expect(html).toBe("");
+  });
+
+  describe("multi-line token handling", () => {
+    it("each line should be a self-contained span with balanced tags", () => {
+      // Token that spans 2 lines (like CSS selector spanning comment + :root)
+      const tokens: Token[] = [
+        {
+          type: "selector",
+          content: "first\nsecond",
+          length: 12,
+        },
+      ];
+      const html = renderToHTML(tokens, { lineNumbers: true });
+
+      // Each neo-hl-line should have balanced open/close spans
+      const lineSpans = html.match(/<span class="neo-hl-line">.*?<\/span><\/span>(?:<\/span>)*/g);
+      expect(lineSpans).not.toBeNull();
+      for (const line of lineSpans!) {
+        const opens = (line.match(/<span/g) || []).length;
+        const closes = (line.match(/<\/span>/g) || []).length;
+        expect(opens).toBe(closes);
+      }
+    });
+
+    it("each line should contain exactly one line-number", () => {
+      const tokens: Token[] = [
+        {
+          type: "selector",
+          content: "line1\nline2\nline3",
+          length: 17,
+        },
+      ];
+      const html = renderToHTML(tokens, { lineNumbers: true });
+
+      const numberCount = (html.match(/neo-hl-line-number/g) || []).length;
+      expect(numberCount).toBe(3);
+    });
+
+    it("no neo-hl-line should be nested inside another neo-hl-line", () => {
+      const tokens: Token[] = [
+        {
+          type: "comment",
+          content: "/* line1 */",
+          length: 11,
+        },
+        {
+          type: "selector",
+          content: "\n:root",
+          length: 6,
+        },
+      ];
+      const html = renderToHTML(tokens, { lineNumbers: true });
+
+      // Split by line boundaries — each segment should only have ONE line-number
+      const segments = html.split(/<span class="neo-hl-line">/g).filter(Boolean);
+      for (const seg of segments) {
+        const lineNumCount = (seg.match(/neo-hl-line-number/g) || []).length;
+        expect(lineNumCount).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it("should handle CSS with multi-line selectors correctly", () => {
+      const code = `/* comment */\n:root {\n  --color: #fff;\n}`;
+      const tokens = tokenize(code, css);
+      const html = renderToHTML(tokens, { lineNumbers: true });
+
+      // Must have exactly 4 line numbers
+      const numbers = html.match(/neo-hl-line-number/g) || [];
+      expect(numbers.length).toBe(4);
+
+      // Each neo-hl-line should have exactly 1 line-number
+      const lineBlocks = html.split(/<span class="neo-hl-line">/g).filter(s => s.includes("neo-hl-line-number"));
+      for (const block of lineBlocks) {
+        const count = (block.match(/neo-hl-line-number/g) || []).length;
+        expect(count).toBe(1);
+      }
+    });
+
+    it("should handle real CSS with empty lines between selectors", () => {
+      const code = `/* comment */\n:root {\n  --x: 1;\n}\n\n.card {\n  color: red;\n}`;
+      const tokens = tokenize(code, css);
+      const html = renderToHTML(tokens, { lineNumbers: true });
+
+      const numbers = html.match(/neo-hl-line-number/g) || [];
+      expect(numbers.length).toBe(8);
+
+      // Verify line numbers are sequential 1-8
+      for (let i = 1; i <= 8; i++) {
+        expect(html).toContain(`neo-hl-line-number">${i}</span>`);
+      }
+    });
+
+    it("should handle Python multi-line strings correctly", () => {
+      const code = `x = """line1\nline2\nline3"""`;
+      const tokens = tokenize(code, python);
+      const html = renderToHTML(tokens, { lineNumbers: true });
+
+      const numbers = html.match(/neo-hl-line-number/g) || [];
+      expect(numbers.length).toBe(3);
+    });
+
+    it("should not have newlines between line spans", () => {
+      const tokens: Token[] = ["line1\nline2"];
+      const html = renderToHTML(tokens, { lineNumbers: true });
+
+      // After a closing </span> for neo-hl-line, the next char should be < not \n
+      expect(html).not.toMatch(/<\/span>\s*\n\s*<span class="neo-hl-line">/);
+    });
+
+    it("reopened tags should preserve original classes", () => {
+      const tokens: Token[] = [
+        {
+          type: "string",
+          content: '"first\nsecond"',
+          alias: "template-string",
+          length: 14,
+        },
+      ];
+      const html = renderToHTML(tokens, { lineNumbers: true });
+
+      // Line 2 content should have the string+alias span reopened
+      const afterLine2 = html.split('neo-hl-line-number">2</span>')[1] ?? '';
+      expect(afterLine2).toContain("neo-hl-string");
+      expect(afterLine2).toContain("neo-hl-template-string");
+    });
   });
 });

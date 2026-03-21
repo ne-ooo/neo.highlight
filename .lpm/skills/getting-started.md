@@ -1,7 +1,7 @@
 ---
 name: getting-started
-description: How to use neo.highlight — React components (Highlight, AutoHighlight, HighlightProvider, CopyButton), useHighlight hook, vanilla JS (highlight, scan, observe), core API (tokenize, renderToHTML), 30 grammars, 10 themes, custom themes, SSR/edge, line highlighting, diff highlighting, tree-shaking
-version: "1.0.0"
+description: How to use neo.highlight — React components (Highlight, AutoHighlight, HighlightProvider, CopyButton), useHighlight hook, vanilla JS (highlight, scan, observe), core API (tokenize, renderToHTML), neo.markdown highlight plugin integration, 30 grammars, 10 themes, custom themes, SSR/edge, line highlighting, diff highlighting, tree-shaking
+version: "1.0.1"
 globs:
   - "**/*.ts"
   - "**/*.tsx"
@@ -203,6 +203,41 @@ const html = renderToHTML(tokens, {
 
 // Step 3: Get theme CSS (for <style> injection)
 const css = getThemeStylesheet(dracula)
+```
+
+## neo.markdown Integration
+
+neo.highlight integrates with `@lpm.dev/neo.markdown` via its highlight plugin. Pass `tokenize`, `renderToHTML`, and `getThemeStylesheet` directly:
+
+```typescript
+import { createParser } from '@lpm.dev/neo.markdown'
+import { highlightPlugin } from '@lpm.dev/neo.markdown/plugins/highlight'
+import { tokenize, renderToHTML, getThemeStylesheet } from '@lpm.dev/neo.highlight'
+import { javascript, typescript, python } from '@lpm.dev/neo.highlight/grammars'
+import { githubDark } from '@lpm.dev/neo.highlight/themes/github-dark'
+
+const parser = createParser({
+  plugins: [
+    highlightPlugin({
+      grammars: [javascript, typescript, python],
+      tokenize,
+      renderToHTML,
+      getThemeStylesheet,
+      theme: githubDark,
+    }),
+  ],
+})
+
+const html = parser.parse(markdownString)
+// Code blocks with known languages get syntax-highlighted automatically
+// getThemeStylesheet generates the CSS that maps .neo-hl-keyword → var(--neo-hl-keyword)
+```
+
+The `getThemeStylesheet` option injects a `<style>` tag into the HTML output with the token color CSS. For React apps, generate the CSS separately and include it in a `<style>` element:
+
+```tsx
+const themeCSS = getThemeStylesheet(githubDark)
+// Include as <style>{themeCSS}</style> in your component
 ```
 
 ## SSR & Edge Runtimes
