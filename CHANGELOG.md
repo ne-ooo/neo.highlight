@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.0] - 2026-03-22
+
+### WCAG AA Theme Compliance
+
+- All 10 built-in themes now pass WCAG AA contrast requirements (4.5:1 minimum)
+- Fixed comment colors in: one-dark, dracula, nord, monokai, solarized-light, solarized-dark, night-owl, tokyo-night
+- Fixed additional token colors in: one-dark (variable/tag/property), nord (number/important/decorator), monokai (keyword/operator), solarized-light (27 tokens adjusted), solarized-dark (14 tokens adjusted)
+
+### Added
+
+- `validateThemeContrast(theme)` — Validate any theme's token colors against WCAG AA (4.5:1 contrast ratio). Returns detailed per-token report.
+- `contrastRatio(color1, color2)` — Calculate contrast ratio between two hex colors
+- `meetsWCAG_AA(foreground, background, isLargeText?)` — Check if a color pair meets WCAG AA
+- `hexToRGB(hex)` — Parse hex color to RGB tuple
+- `relativeLuminance(r, g, b)` — Calculate WCAG 2.0 relative luminance
+- `getDualThemeStylesheet(lightTheme, darkTheme, options?)` — Generate CSS with both light and dark theme variables, using `@media (prefers-color-scheme: dark)` or custom class selector
+- `resolveGrammar(language, grammars)` — Resolve language strings ("js", "py") to Grammar objects by checking name and aliases
+- 350 tests (up from 310)
+
 ## [1.0.1] - 2026-03-21
 
 ### Fixed

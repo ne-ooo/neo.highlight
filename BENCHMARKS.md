@@ -1,5 +1,7 @@
 # Performance Benchmarks - @lpm.dev/neo.highlight
 
+All 10 built-in themes now pass **WCAG AA contrast requirements**. Custom theme authors can verify their themes using the `validateThemeContrast()` utility.
+
 This document contains comprehensive benchmark results comparing `@lpm.dev/neo.highlight` against the two dominant syntax highlighting libraries.
 
 ## Summary
@@ -18,7 +20,7 @@ This document contains comprehensive benchmark results comparing `@lpm.dev/neo.h
 - **Node.js**: v18+
 - **Test Framework**: Vitest v1.6.1
 - **Packages Tested**:
-  - @lpm.dev/neo.highlight v0.1.0
+  - @lpm.dev/neo.highlight v1.1.0
   - prismjs v1.30.0
   - highlight.js v11.11.1
 
@@ -329,5 +331,5 @@ npx vitest bench bench/comparison.bench.ts
 
 ---
 
-**Benchmarks last updated**: February 2026
-**Version tested**: @lpm.dev/neo.highlight v0.1.0
+**Benchmarks last updated**: March 21, 2026
+**Version tested**: @lpm.dev/neo.highlight v1.1.0

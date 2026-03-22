@@ -10,10 +10,12 @@
 // Core API
 export { tokenize, getPlainText, createRegistry } from "./core/tokenizer";
 export { renderToHTML, getThemeStylesheet } from "./core/renderer";
-export { applyTheme, registerTheme, registerThemes, getTheme, getThemeCSS, resolveTheme } from "./core/themes";
+export { applyTheme, registerTheme, registerThemes, getTheme, getThemeCSS, resolveTheme, getDualThemeStylesheet } from "./core/themes";
+export { resolveGrammar } from "./core/grammar-utils";
 export { scan, observe, autoHighlight } from "./core/scanner";
 export { detectLanguage, scoreTokenization, clearDetectCache } from "./core/detect";
 export { renderCopyButton, initCopyButtons } from "./core/copy-button";
+export { validateThemeContrast, contrastRatio, meetsWCAG_AA, hexToRGB, relativeLuminance } from "./core/contrast";
 
 // Types
 export type {
@@ -32,3 +34,4 @@ export type {
   DetectOptions,
   DiffHighlight,
 } from "./core/types";
+export type { ContrastResult, ThemeContrastReport } from "./core/contrast";

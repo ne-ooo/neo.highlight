@@ -12,7 +12,7 @@ export const nightOwl: Theme = {
   diffRemovedBg: "rgba(239, 83, 80, 0.15)",
   diffModifiedBg: "rgba(255, 203, 107, 0.15)",
   tokenColors: {
-    comment: "#637777",
+    comment: "#708383",
     keyword: "#c792ea",
     string: "#ecc48d",
     number: "#f78c6c",

@@ -12,7 +12,7 @@ export const dracula: Theme = {
   diffRemovedBg: "rgba(255, 85, 85, 0.15)",
   diffModifiedBg: "rgba(241, 250, 140, 0.15)",
   tokenColors: {
-    comment: "#6272a4",
+    comment: "#8491b8",
     keyword: "#ff79c6",
     string: "#f1fa8c",
     number: "#bd93f9",

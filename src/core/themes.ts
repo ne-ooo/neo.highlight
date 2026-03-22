@@ -123,6 +123,82 @@ export function getThemeCSS(theme: Theme, classPrefix = DEFAULT_CLASS_PREFIX): s
 }
 
 /**
+ * Generate a dual-theme stylesheet that switches between light and dark themes.
+ *
+ * @param lightTheme - Theme for light mode
+ * @param darkTheme - Theme for dark mode
+ * @param options - Configuration options
+ * @returns CSS string with both themes
+ *
+ * @example
+ * ```typescript
+ * // Media query based (default)
+ * const css = getDualThemeStylesheet(githubLight, githubDark)
+ *
+ * // Class-based toggle
+ * const css = getDualThemeStylesheet(githubLight, githubDark, {
+ *   darkSelector: '.dark'
+ * })
+ * ```
+ */
+export function getDualThemeStylesheet(
+  lightTheme: Theme,
+  darkTheme: Theme,
+  options: { darkSelector?: string; classPrefix?: string } = {},
+): string {
+  const { darkSelector, classPrefix = DEFAULT_CLASS_PREFIX } = options
+  const lines: string[] = []
+
+  // Light theme variables (default)
+  lines.push(`.${classPrefix} {`)
+  lines.push(`  --${classPrefix}-bg: ${lightTheme.background};`)
+  lines.push(`  --${classPrefix}-fg: ${lightTheme.foreground};`)
+  lines.push(`  background: var(--${classPrefix}-bg);`)
+  lines.push(`  color: var(--${classPrefix}-fg);`)
+  for (const [tokenType, color] of Object.entries(lightTheme.tokenColors)) {
+    if (color) {
+      lines.push(`  --${classPrefix}-${tokenType}: ${color};`)
+    }
+  }
+  lines.push(`}`)
+  lines.push("")
+
+  // Dark theme variables
+  if (darkSelector) {
+    // Class-based: .dark .neo-hl { ... }
+    lines.push(`${darkSelector} .${classPrefix} {`)
+  } else {
+    // Media query based (default)
+    lines.push(`@media (prefers-color-scheme: dark) {`)
+    lines.push(`.${classPrefix} {`)
+  }
+
+  lines.push(`  --${classPrefix}-bg: ${darkTheme.background};`)
+  lines.push(`  --${classPrefix}-fg: ${darkTheme.foreground};`)
+  for (const [tokenType, color] of Object.entries(darkTheme.tokenColors)) {
+    if (color) {
+      lines.push(`  --${classPrefix}-${tokenType}: ${color};`)
+    }
+  }
+
+  lines.push(`}`)
+  if (!darkSelector) {
+    lines.push(`}`) // Close @media
+  }
+  lines.push("")
+
+  // Token classes (use CSS variables, works for both themes)
+  for (const tokenType of new Set([
+    ...Object.keys(lightTheme.tokenColors),
+    ...Object.keys(darkTheme.tokenColors),
+  ])) {
+    lines.push(`.${classPrefix}-${tokenType} { color: var(--${classPrefix}-${tokenType}); }`)
+  }
+
+  return lines.join("\n")
+}
+
+/**
  * Apply a theme by injecting a <style> tag into the document.
  * Returns a cleanup function to remove the style element.
  *

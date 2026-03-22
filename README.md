@@ -348,6 +348,121 @@ disconnect();
 
 ---
 
+## Core Utilities
+
+Import from `@lpm.dev/neo.highlight`.
+
+### `resolveGrammar(language, grammars)`
+
+Resolve a language string to a `Grammar` object by checking grammar names and aliases. Useful when you have a language identifier from user input (e.g. `"js"`, `"py"`, `"tsx"`) and need to find the matching grammar.
+
+```ts
+import { resolveGrammar } from "@lpm.dev/neo.highlight";
+import { javascript, python, typescript } from "@lpm.dev/neo.highlight/grammars";
+
+const grammars = [javascript, python, typescript];
+
+resolveGrammar("js", grammars);         // → javascript grammar
+resolveGrammar("python", grammars);     // → python grammar
+resolveGrammar("typescript", grammars); // → typescript grammar
+resolveGrammar("unknown", grammars);    // → undefined
+```
+
+**Parameters:**
+
+| Parameter  | Type        | Description                    |
+| ---------- | ----------- | ------------------------------ |
+| `language` | `string`    | Language name or alias         |
+| `grammars` | `Grammar[]` | Array of grammars to search in |
+
+**Returns:** `Grammar | undefined`
+
+### `validateThemeContrast(theme)`
+
+Validate a theme's token colors against WCAG AA contrast requirements (4.5:1 minimum ratio). Returns a detailed per-token report.
+
+```ts
+import { validateThemeContrast } from "@lpm.dev/neo.highlight";
+import { nord } from "@lpm.dev/neo.highlight/themes/nord";
+
+const report = validateThemeContrast(nord);
+// report.passes — boolean, true if all tokens pass
+// report.tokens — array of { name, foreground, background, ratio, passes }
+```
+
+**Returns:** `{ passes: boolean, theme: string, tokens: TokenContrastReport[] }`
+
+### `contrastRatio(color1, color2)`
+
+Calculate the WCAG 2.0 contrast ratio between two hex colors. Returns a value between 1 and 21.
+
+```ts
+import { contrastRatio } from "@lpm.dev/neo.highlight";
+
+contrastRatio("#ffffff", "#000000"); // → 21
+contrastRatio("#767676", "#ffffff"); // → ~4.54
+```
+
+### `meetsWCAG_AA(foreground, background, isLargeText?)`
+
+Check whether a foreground/background color pair meets WCAG AA. Normal text requires 4.5:1; large text (18px+ bold or 24px+) requires 3:1.
+
+```ts
+import { meetsWCAG_AA } from "@lpm.dev/neo.highlight";
+
+meetsWCAG_AA("#767676", "#ffffff");        // → true  (4.54:1 >= 4.5)
+meetsWCAG_AA("#808080", "#ffffff");        // → false (3.95:1 < 4.5)
+meetsWCAG_AA("#808080", "#ffffff", true);  // → true  (3.95:1 >= 3.0 for large text)
+```
+
+### `hexToRGB(hex)`
+
+Parse a hex color string (`"#rgb"` or `"#rrggbb"`) to an `[r, g, b]` tuple.
+
+```ts
+import { hexToRGB } from "@lpm.dev/neo.highlight";
+
+hexToRGB("#ff9e64"); // → [255, 158, 100]
+hexToRGB("#fff");    // → [255, 255, 255]
+```
+
+### `relativeLuminance(r, g, b)`
+
+Calculate the WCAG 2.0 relative luminance of an RGB color. Returns a value between 0 (black) and 1 (white).
+
+```ts
+import { relativeLuminance } from "@lpm.dev/neo.highlight";
+
+relativeLuminance(255, 255, 255); // → 1
+relativeLuminance(0, 0, 0);       // → 0
+```
+
+### `getDualThemeStylesheet(lightTheme, darkTheme, options?)`
+
+Generate a CSS stylesheet containing both light and dark theme variables. By default uses `@media (prefers-color-scheme: dark)` to switch; pass `darkSelector` for class-based toggling.
+
+```ts
+import { getDualThemeStylesheet } from "@lpm.dev/neo.highlight";
+import { solarizedLight } from "@lpm.dev/neo.highlight/themes/solarized-light";
+import { solarizedDark } from "@lpm.dev/neo.highlight/themes/solarized-dark";
+
+// Media query (default)
+const css = getDualThemeStylesheet(solarizedLight, solarizedDark);
+
+// Class-based
+const css2 = getDualThemeStylesheet(solarizedLight, solarizedDark, {
+  darkSelector: "[data-theme='dark']",
+});
+```
+
+**Options:**
+
+| Option         | Type     | Default                                    | Description                              |
+| -------------- | -------- | ------------------------------------------ | ---------------------------------------- |
+| `darkSelector` | `string` | `@media (prefers-color-scheme: dark)` rule | CSS selector to scope the dark overrides |
+
+---
+
 ## Languages
 
 30 languages with tree-shakeable imports. Import only what you need.
@@ -423,6 +538,64 @@ import { githubDark, dracula, nord } from "@lpm.dev/neo.highlight/themes";
 | Solarized Dark  | `solarizedDark`  | Ethan Schoonover's Solarized (dark)    |
 | Night Owl       | `nightOwl`       | Sarah Drasner's Night Owl theme        |
 | Tokyo Night     | `tokyoNight`     | Inspired by Tokyo city lights at night |
+
+All built-in themes pass WCAG AA contrast requirements (4.5:1 minimum ratio against their background).
+
+---
+
+## Theme Accessibility
+
+Validate any theme (built-in or custom) against WCAG AA contrast requirements using `validateThemeContrast()`:
+
+```ts
+import { validateThemeContrast } from "@lpm.dev/neo.highlight";
+import { dracula } from "@lpm.dev/neo.highlight/themes/dracula";
+
+const report = validateThemeContrast(dracula);
+
+console.log(report.passes); // true — all tokens meet 4.5:1 ratio
+console.log(report.theme);  // "dracula"
+
+for (const token of report.tokens) {
+  console.log(
+    `${token.name}: ${token.ratio.toFixed(1)}:1 — ${token.passes ? "PASS" : "FAIL"}`,
+  );
+}
+```
+
+The report includes each token's foreground color, background color, computed contrast ratio, and whether it passes the 4.5:1 threshold.
+
+---
+
+## Dual Theme (Light/Dark)
+
+Generate a stylesheet that switches between a light and a dark theme automatically using `getDualThemeStylesheet()`:
+
+### Using `prefers-color-scheme` (default)
+
+```ts
+import { getDualThemeStylesheet } from "@lpm.dev/neo.highlight";
+import { githubLight } from "@lpm.dev/neo.highlight/themes/github-light";
+import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
+
+const css = getDualThemeStylesheet(githubLight, githubDark);
+// Produces CSS with:
+//   Root styles use githubLight values
+//   @media (prefers-color-scheme: dark) { ... } overrides with githubDark values
+```
+
+### Using a class selector
+
+```ts
+const css = getDualThemeStylesheet(githubLight, githubDark, {
+  darkSelector: ".dark",
+});
+// Produces CSS with:
+//   Root styles use githubLight values
+//   .dark { ... } overrides with githubDark values
+```
+
+Inject the returned CSS into a `<style>` tag. Theme switching works without any JavaScript -- it follows the user's OS preference or your class toggle.
 
 ---
 

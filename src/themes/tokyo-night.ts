@@ -12,7 +12,7 @@ export const tokyoNight: Theme = {
   diffRemovedBg: "rgba(247, 118, 142, 0.15)",
   diffModifiedBg: "rgba(224, 175, 104, 0.15)",
   tokenColors: {
-    comment: "#565f89",
+    comment: "#7b83a3",
     keyword: "#9d7cd8",
     string: "#9ece6a",
     number: "#ff9e64",
