@@ -1,7 +1,7 @@
 ---
 name: migrate-from-prismjs
-description: Migration guide from Prism.js to neo.highlight — global Prism object to tree-shakeable imports, grammar compatibility, theme mapping, autoloader to explicit imports, plugin replacements (line-numbers, line-highlight, copy-to-clipboard built-in), plus comparison with highlight.js, react-syntax-highlighter, and Shiki
-version: "1.0.1"
+description: Migration guide from Prism.js to neo.highlight — global Prism object to tree-shakeable imports, grammar compatibility, theme mapping, autoloader to explicit imports, plugin replacements (line-numbers, line-highlight, copy-to-clipboard built-in), WCAG AA theme compliance, dual theme support, resolveGrammar for alias lookup, plus comparison with highlight.js, react-syntax-highlighter, and Shiki
+version: "1.1.1"
 globs:
   - "**/*.ts"
   - "**/*.tsx"
@@ -24,6 +24,9 @@ globs:
 | **Line numbers**     | Plugin required                 | Built-in option                |
 | **Copy button**      | Plugin required                 | Built-in component             |
 | **MutationObserver** | Not built-in                    | Built-in `observe()`           |
+| **WCAG AA themes**   | No contrast guarantees          | All 10 themes pass 4.5:1       |
+| **Dark/light CSS**   | Manual theme swapping           | `getDualThemeStylesheet()`     |
+| **Language aliases** | Manual alias registration       | `resolveGrammar()` built-in    |
 
 ## Import Mapping
 
@@ -201,6 +204,52 @@ highlight(code, javascript, { theme: isDark ? oneDark : githubLight });
 
 Themes are < 1KB each (JS objects with color values) vs Prism's CSS files.
 
+### WCAG AA Theme Compliance
+
+Prism.js themes have no contrast guarantees — several popular themes (e.g., `prism-tomorrow`, `prism-twilight`) have token colors that fail WCAG AA against their backgrounds. neo.highlight's 10 built-in themes all pass WCAG AA (4.5:1 contrast ratio for every token color). For custom themes, validate with `validateThemeContrast()`:
+
+```typescript
+import { validateThemeContrast } from "@lpm.dev/neo.highlight";
+import { dracula } from "@lpm.dev/neo.highlight/themes/dracula";
+
+const report = validateThemeContrast(dracula);
+// report.passed → true (all tokens meet 4.5:1)
+```
+
+### Dual Theme Support
+
+Prism.js requires loading separate CSS files and manually swapping them for light/dark mode. neo.highlight generates a single stylesheet with both themes:
+
+```typescript
+import { getDualThemeStylesheet } from "@lpm.dev/neo.highlight";
+import { githubLight } from "@lpm.dev/neo.highlight/themes/github-light";
+import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
+
+// Automatic via prefers-color-scheme
+const css = getDualThemeStylesheet(githubLight, githubDark);
+
+// Or class-based toggle
+const css2 = getDualThemeStylesheet(githubLight, githubDark, {
+  darkSelector: ".dark",
+});
+```
+
+### Language Alias Resolution
+
+Prism.js requires manually registering language aliases or loading the correct component file. neo.highlight resolves aliases automatically:
+
+```typescript
+// Prism.js — must know the exact component name
+import "prismjs/components/prism-javascript"; // Not "js"
+
+// neo.highlight — resolveGrammar handles aliases
+import { resolveGrammar } from "@lpm.dev/neo.highlight";
+import { javascript, python } from "@lpm.dev/neo.highlight/grammars";
+
+resolveGrammar("js", [javascript, python]); // → javascript grammar
+resolveGrammar("py", [javascript, python]); // → python grammar
+```
+
 ## Grammar Compatibility
 
 neo.highlight grammars use a Prism-compatible pattern syntax:
@@ -361,4 +410,7 @@ Advantage: Shiki requires async WASM initialization — doesn't work in Cloudfla
 - [ ] Remove `@types/prismjs` if using TypeScript
 - [ ] For React: replace `useEffect` + `Prism.highlightElement` with `<Highlight>`
 - [ ] For SSR: replace global `Prism` with `tokenize()` + `renderToHTML()`
+- [ ] Replace manual theme swapping with `getDualThemeStylesheet()` for light/dark mode
+- [ ] Replace manual language alias maps with `resolveGrammar()`
+- [ ] Validate custom themes with `validateThemeContrast()` for WCAG AA compliance
 - [ ] Remove `prismjs` from dependencies

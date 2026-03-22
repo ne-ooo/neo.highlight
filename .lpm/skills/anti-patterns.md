@@ -1,7 +1,7 @@
 ---
 name: anti-patterns
-description: Common mistakes when using neo.highlight — auto-detect unreliable for short/ambiguous code, grammar token order matters, greedy flag omission breaks multi-line tokens, applyTheme no-op in SSR, MutationObserver cleanup leak, detect cache keyed on first 500 chars, React context silent defaults, scan selector mismatch
-version: "1.0.1"
+description: Common mistakes when using neo.highlight — auto-detect unreliable for short/ambiguous code, grammar token order matters, greedy flag omission breaks multi-line tokens, applyTheme no-op in SSR, MutationObserver cleanup leak, detect cache keyed on first 500 chars, React context silent defaults, scan selector mismatch, shipping custom themes without contrast validation, building manual grammar alias maps
+version: "1.1.1"
 globs:
   - "**/*.ts"
   - "**/*.tsx"
@@ -333,3 +333,101 @@ scan({
 The default selector is `"pre code"`, which matches `<pre><code>...</code></pre>`. If your HTML uses a different structure (e.g., `<div class="highlight"><code>`), you must pass a matching `selector`. The `scan()` function will silently find 0 elements and return 0 if the selector doesn't match.
 
 Source: `src/core/scanner.ts` — `document.querySelectorAll(selector)`
+
+### [HIGH] Don't ship custom themes without validating contrast
+
+Wrong:
+
+```typescript
+// AI creates a custom theme without checking accessibility
+import type { Theme } from "@lpm.dev/neo.highlight";
+
+const myTheme: Theme = {
+  name: "my-theme",
+  background: "#1e1e2e",
+  foreground: "#cdd6f4",
+  tokenColors: {
+    comment: "#45475a", // Low contrast against dark background!
+    keyword: "#cba6f7",
+    string: "#a6e3a1",
+  },
+};
+// Ships with inaccessible comment color — fails WCAG AA
+```
+
+Correct:
+
+```typescript
+import { validateThemeContrast } from "@lpm.dev/neo.highlight";
+import type { Theme } from "@lpm.dev/neo.highlight";
+
+const myTheme: Theme = {
+  name: "my-theme",
+  background: "#1e1e2e",
+  foreground: "#cdd6f4",
+  tokenColors: {
+    comment: "#7f849c", // Adjusted for sufficient contrast
+    keyword: "#cba6f7",
+    string: "#a6e3a1",
+  },
+};
+
+const report = validateThemeContrast(myTheme);
+if (!report.passed) {
+  const failures = report.results.filter((r) => !r.pass);
+  throw new Error(
+    `Theme "${myTheme.name}" fails WCAG AA: ${failures.map((f) => `${f.token} (${f.ratio.toFixed(1)}:1)`).join(", ")}`,
+  );
+}
+```
+
+All 10 built-in themes pass WCAG AA (4.5:1 contrast ratio). Always validate custom themes with `validateThemeContrast()` before shipping. Use `contrastRatio()` and `meetsWCAG_AA()` to check individual colors during theme development.
+
+Source: `src/core/contrast.ts` — WCAG 2.0 contrast calculation
+
+### [MEDIUM] Don't build manual alias maps for grammar lookup — use `resolveGrammar()`
+
+Wrong:
+
+```typescript
+// AI builds a manual mapping from language strings to grammars
+import {
+  javascript,
+  python,
+  typescript,
+} from "@lpm.dev/neo.highlight/grammars";
+
+const grammarMap: Record<string, Grammar> = {
+  javascript,
+  js: javascript,
+  mjs: javascript,
+  typescript,
+  ts: typescript,
+  tsx: typescript,
+  python,
+  py: python,
+};
+
+const grammar = grammarMap[languageString]; // Misses aliases, case-sensitive
+```
+
+Correct:
+
+```typescript
+import { resolveGrammar } from "@lpm.dev/neo.highlight";
+import {
+  javascript,
+  python,
+  typescript,
+} from "@lpm.dev/neo.highlight/grammars";
+
+const grammars = [javascript, python, typescript];
+const grammar = resolveGrammar(languageString, grammars);
+// Case-insensitive, checks both name and aliases
+// resolveGrammar("JS", grammars) → javascript grammar
+// resolveGrammar("py", grammars) → python grammar
+```
+
+`resolveGrammar()` checks each grammar's `name` and `aliases` array, case-insensitively. It stays in sync with grammar definitions — no manual alias maintenance needed.
+
+Source: `src/core/grammars.ts` — `resolveGrammar()` implementation
