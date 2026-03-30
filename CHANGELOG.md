@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.0] - 2026-03-30
+
+### Added
+
+- **25 new language grammars** — expanded from 30 to 55 languages:
+  - **Tier 1 (Web & Modern):** Lua, Dart, Elixir, Scala, R, Svelte, Vue, Astro, Zig, WASM/WAT
+  - **Tier 2 (Enterprise & DevOps):** Haskell, Erlang, Clojure, OCaml, Perl, Objective-C, PowerShell, Terraform/HCL, Prisma, Nix, LaTeX, Less, Handlebars
+  - **Tier 3 (Specialized):** Solidity, CSV
+- Framework grammars (Svelte, Vue, Astro, Handlebars) extend HTML grammar with framework-specific syntax
+- Language composition: Less extends CSS, Objective-C extends C
+- 450 tests (up from 350)
+
+### Language Details
+
+| Language | Import | Aliases |
+|----------|--------|---------|
+| Lua | `lua` | — |
+| Dart | `dart` | — |
+| Elixir | `elixir` | `ex`, `exs` |
+| Scala | `scala` | `sc` |
+| R | `r` | `rlang` |
+| Svelte | `svelte` | — |
+| Vue | `vue` | `vue-html` |
+| Astro | `astro` | — |
+| Zig | `zig` | — |
+| WASM | `wasm` | `wat`, `wast` |
+| Haskell | `haskell` | `hs` |
+| Erlang | `erlang` | `erl` |
+| Clojure | `clojure` | `clj`, `cljs`, `cljc`, `edn` |
+| OCaml | `ocaml` | `ml` |
+| Perl | `perl` | `pl` |
+| Objective-C | `objectivec` | `objc`, `obj-c` |
+| PowerShell | `powershell` | `ps1`, `posh` |
+| Terraform | `terraform` | `hcl`, `tf` |
+| Prisma | `prisma` | — |
+| Nix | `nix` | `nixos` |
+| LaTeX | `latex` | `tex` |
+| Less | `less` | — |
+| Handlebars | `handlebars` | `hbs`, `mustache` |
+| Solidity | `solidity` | `sol` |
+| CSV | `csv` | `tsv` |
+
 ## [1.1.1] - 2026-03-22
 
 ### WCAG AA Theme Compliance

@@ -19,7 +19,7 @@ Every existing syntax highlighter requires tradeoffs -- bloated bundles, missing
 | Auto-scan (DOM)       | Built-in      | Built-in | Built-in     | No             | No                       | No         |
 | MutationObserver      | Built-in      | No       | No           | No             | No                       | No         |
 | SSR support           | Yes           | Manual   | Manual       | Yes            | Yes                      | Yes        |
-| Languages             | 30            | 290+     | 190+         | 190+           | 190+                     | ~10        |
+| Languages             | 55            | 290+     | 190+         | 190+           | 190+                     | ~10        |
 | Themes                | 10            | 8        | 90+          | 30+            | 80+                      | 1          |
 | CSS custom properties | Yes           | No       | No           | No             | No                       | Yes        |
 
@@ -29,7 +29,7 @@ Every existing syntax highlighter requires tradeoffs -- bloated bundles, missing
 
 - **Zero dependencies** -- nothing to install, nothing to break
 - **~3.8 KB core** gzipped -- load only what you use
-- **30 languages** with accurate grammar definitions
+- **55 languages** with accurate grammar definitions
 - **10 themes** including GitHub Dark, Dracula, Nord, Tokyo Night
 - **React + Vanilla JS** -- first-class adapters for both
 - **Component mode** -- `<Highlight>` for explicit code blocks
@@ -465,7 +465,7 @@ const css2 = getDualThemeStylesheet(solarizedLight, solarizedDark, {
 
 ## Languages
 
-30 languages with tree-shakeable imports. Import only what you need.
+55 languages with tree-shakeable imports. Import only what you need.
 
 ```ts
 // Import a single language
@@ -511,6 +511,31 @@ import {
 | INI        | `ini`        | `conf`, `cfg`, `env`, `properties`                            |
 | Diff       | `diff`       | `patch`                                                       |
 | Regex      | `regex`      | `regexp`                                                      |
+| Lua        | `lua`        | --                                                            |
+| Dart       | `dart`       | --                                                            |
+| Elixir     | `elixir`     | `ex`, `exs`                                                   |
+| Scala      | `scala`      | `sc`                                                          |
+| R          | `r`          | `rlang`                                                       |
+| Svelte     | `svelte`     | --                                                            |
+| Vue        | `vue`        | `vue-html`                                                    |
+| Astro      | `astro`      | --                                                            |
+| Zig        | `zig`        | --                                                            |
+| WASM       | `wasm`       | `wat`, `wast`                                                 |
+| Haskell    | `haskell`    | `hs`                                                          |
+| Erlang     | `erlang`     | `erl`                                                         |
+| Clojure    | `clojure`    | `clj`, `cljs`, `cljc`, `edn`                                 |
+| OCaml      | `ocaml`      | `ml`                                                          |
+| Perl       | `perl`       | `pl`                                                          |
+| Objective-C| `objectivec` | `objc`, `obj-c`                                               |
+| PowerShell | `powershell` | `ps1`, `posh`                                                 |
+| Terraform  | `terraform`  | `hcl`, `tf`                                                   |
+| Prisma     | `prisma`     | --                                                            |
+| Nix        | `nix`        | `nixos`                                                       |
+| LaTeX      | `latex`      | `tex`                                                         |
+| Less       | `less`       | --                                                            |
+| Handlebars | `handlebars` | `hbs`, `mustache`                                             |
+| Solidity   | `solidity`   | `sol`                                                         |
+| CSV        | `csv`        | `tsv`                                                         |
 
 ---
 
@@ -737,7 +762,7 @@ Every grammar and theme is a separate module. Import only what you need.
 | Vanilla adapter             | ~0.8 KB |
 | Single theme                | ~0.3 KB |
 | Single grammar (avg)        | ~0.4 KB |
-| All 30 grammars             | ~12 KB  |
+| All 55 grammars             | ~22 KB  |
 | All 10 themes               | ~3 KB   |
 
 The `sideEffects: false` flag in `package.json` ensures bundlers tree-shake unused exports.

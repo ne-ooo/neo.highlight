@@ -1,7 +1,7 @@
 ---
 name: getting-started
-description: How to use neo.highlight — React components (Highlight, AutoHighlight, HighlightProvider, CopyButton), useHighlight hook, vanilla JS (highlight, scan, observe), core API (tokenize, renderToHTML, resolveGrammar), neo.markdown highlight plugin integration, 30 grammars, 10 WCAG AA themes, custom themes, theme accessibility (validateThemeContrast, contrastRatio, meetsWCAG_AA), dual theme support (getDualThemeStylesheet), SSR/edge, line highlighting, diff highlighting, tree-shaking
-version: "1.1.1"
+description: How to use neo.highlight — React (Highlight, AutoHighlight, HighlightProvider), vanilla JS (highlight, scan, observe), core API (tokenize, renderToHTML, resolveGrammar), 55 grammars, 10 WCAG AA themes, custom themes, validateThemeContrast, getDualThemeStylesheet, SSR/edge, line/diff highlighting, tree-shaking
+version: "1.2.0"
 globs:
   - "**/*.ts"
   - "**/*.tsx"
@@ -13,7 +13,7 @@ globs:
 
 ## Overview
 
-neo.highlight is a zero-dependency syntax highlighter. ~3.8 KB gzipped core, 30 languages, 10 themes, first-class React adapter, vanilla JS adapter, fully synchronous (SSR/edge-ready), tree-shakeable.
+neo.highlight is a zero-dependency syntax highlighter. ~3.8 KB gzipped core, 55 languages, 10 themes, first-class React adapter, vanilla JS adapter, fully synchronous (SSR/edge-ready), tree-shakeable.
 
 ## React API
 
@@ -286,7 +286,7 @@ const css = getThemeStylesheet(githubDark);
 // Returns scoped CSS with --neo-hl-* custom properties
 ```
 
-## Grammars (30 Languages)
+## Grammars (55 Languages)
 
 All tree-shakeable — import only what you need:
 
@@ -297,40 +297,28 @@ import { python } from "@lpm.dev/neo.highlight/grammars/python";
 
 // Bulk import (convenient for dev)
 import {
-  javascript,
-  typescript,
-  python,
-  rust,
-  go,
-  java,
-  kotlin,
-  swift,
-  ruby,
-  php,
-  c,
-  cpp,
-  csharp,
-  bash,
-  shell,
-  sql,
-  html,
-  css,
-  scss,
-  json,
-  yaml,
-  markdown,
-  graphql,
-  docker,
-  diff,
-  regex,
-  toml,
-  ini,
-  jsx,
-  tsx,
+  // Web core
+  javascript, typescript, jsx, tsx, html, css, scss, less,
+  json, yaml, markdown, graphql,
+  // Frameworks
+  svelte, vue, astro, handlebars,
+  // Backend
+  python, ruby, php, go, rust, java, kotlin, swift, scala,
+  elixir, erlang, haskell, clojure, ocaml, perl, dart, lua, r,
+  // Systems
+  c, cpp, csharp, objectivec, zig, wasm,
+  // DevOps & Config
+  bash, shell, docker, sql, toml, ini, terraform, prisma, nix, powershell,
+  // Markup & Data
+  latex, csv, diff, regex,
+  // Web3
+  solidity,
 } from "@lpm.dev/neo.highlight/grammars";
 ```
 
 Each grammar has `name`, optional `aliases` (e.g., `["js", "mjs"]` for JavaScript), and `tokens`.
+
+Framework grammars extend base grammars: Svelte/Vue/Astro/Handlebars extend HTML, Less extends CSS, Objective-C extends C.
 
 Custom grammars are supported — define a `Grammar` object with `name` and `tokens`. See the `Grammar` type export for the full interface.
 
@@ -500,50 +488,12 @@ if (result) {
 }
 ```
 
-Uses keyword density (35%), coverage ratio (30%), token diversity (20%), and high-value tokens (15%). Cached with LRU (100 entries). Use explicit `class="language-*"` attributes when possible — auto-detect is a fallback.
+Scores by keyword density (35%), coverage (30%), diversity (20%), high-value tokens (15%). LRU cached (100 entries). Prefer explicit `class="language-*"` attributes — auto-detect is a fallback.
 
 ## Tree-Shaking
 
-```typescript
-// Core + 1 grammar ≈ 4.2 KB gzipped
-import { highlight } from "@lpm.dev/neo.highlight/vanilla";
-import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
-import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
-
-// Only JavaScript grammar and GitHub Dark theme are bundled
-```
-
-`sideEffects: false` in package.json — bundlers eliminate all unused code.
+Import only what you need — `sideEffects: false` ensures bundlers eliminate unused grammars/themes. Core + 1 grammar ≈ 4.2 KB gzipped.
 
 ## TypeScript Types
 
-```typescript
-import type {
-  Token,
-  TokenNode,
-  TokenPattern,
-  TokenDefinition,
-  Grammar,
-  GrammarTokens,
-  GrammarRegistry,
-  Theme,
-  ThemeTokenColors,
-  RenderOptions,
-  ByteFormatOptions,
-  DetectResult,
-  DetectOptions,
-  DiffHighlight,
-  ContrastResult,
-  ThemeContrastReport,
-  // React types
-  HighlightProps,
-  AutoHighlightProps,
-  UseHighlightOptions,
-  UseHighlightResult,
-  HighlightContextValue,
-  CopyButtonProps,
-  // Vanilla types
-  HighlightOptions,
-  ScanOptions,
-} from "@lpm.dev/neo.highlight";
-```
+All types exported from main entry: `Token`, `TokenNode`, `Grammar`, `Theme`, `RenderOptions`, `DetectResult`, `DiffHighlight`, `ContrastResult`, `ThemeContrastReport`. React types from `/react`, vanilla types from `/vanilla`.

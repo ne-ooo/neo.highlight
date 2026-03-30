@@ -125,10 +125,8 @@ function getTokenClasses(token: TokenNode, classPrefix: string): string[] {
  */
 function getThemeInlineStyles(theme: Theme): string {
   const vars: string[] = [
-    `--neo-hl-bg: ${theme.background}`,
-    `--neo-hl-fg: ${theme.foreground}`,
-    `background: ${theme.background}`,
-    `color: ${theme.foreground}`,
+    `background: var(--neo-hl-bg, ${theme.background})`,
+    `color: var(--neo-hl-fg, ${theme.foreground})`,
   ];
 
   if (theme.selection) {

@@ -1,7 +1,7 @@
 ---
 name: migrate-from-prismjs
 description: Migration guide from Prism.js to neo.highlight — global Prism object to tree-shakeable imports, grammar compatibility, theme mapping, autoloader to explicit imports, plugin replacements (line-numbers, line-highlight, copy-to-clipboard built-in), WCAG AA theme compliance, dual theme support, resolveGrammar for alias lookup, plus comparison with highlight.js, react-syntax-highlighter, and Shiki
-version: "1.1.1"
+version: "1.2.0"
 globs:
   - "**/*.ts"
   - "**/*.tsx"
