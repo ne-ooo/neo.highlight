@@ -1,8 +1,11 @@
-import type { Grammar, RenderOptions, Token } from "../core/types";
+import type { Grammar, RenderOptions, Token, TokenizeOptions } from "../core/types";
 import { tokenize } from "../core/tokenizer";
 import { renderToHTML } from "../core/renderer";
 
-export interface HighlightOptions extends Omit<RenderOptions, "language"> {}
+export interface HighlightOptions extends Omit<RenderOptions, "language"> {
+  /** Maximum UTF-16 code units accepted by the tokenizer. */
+  maxInputLength?: TokenizeOptions["maxInputLength"];
+}
 
 /**
  * Highlight source code and return an HTML string.
@@ -17,9 +20,10 @@ export function highlight(
   language: Grammar,
   options: HighlightOptions = {},
 ): string {
-  const tokens: Token[] = tokenize(code, language);
+  const { maxInputLength, ...renderOptions } = options;
+  const tokens: Token[] = tokenize(code, language, { maxInputLength });
   return renderToHTML(tokens, {
-    ...options,
+    ...renderOptions,
     language: language.name,
   });
 }

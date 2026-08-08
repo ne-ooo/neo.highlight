@@ -9,7 +9,7 @@
 import type { Grammar, ScanOptions, Theme } from "./types";
 import { tokenize, createRegistry } from "./tokenizer";
 import { renderToHTML } from "./renderer";
-import { applyTheme, resolveTheme } from "./themes";
+import { applyTheme, resolveThemeOrThrow } from "./themes";
 import { detectLanguage as detectLanguageAuto } from "./detect";
 
 const HIGHLIGHTED_ATTR = "data-neo-highlighted";
@@ -51,12 +51,20 @@ function highlightElement(
     lineNumbers?: boolean | undefined;
     classPrefix?: string | undefined;
     autoDetect?: boolean | undefined;
+    maxInputLength?: number | undefined;
   },
+  force = false,
+  internallyMutated?: WeakSet<Element>,
 ): boolean {
-  // Skip already highlighted elements
-  if (element.hasAttribute(HIGHLIGHTED_ATTR)) return false;
+  if (!force && element.hasAttribute(HIGHLIGHTED_ATTR)) return false;
+  if (
+    !force &&
+    element.parentElement?.closest(`[${HIGHLIGHTED_ATTR}]`)
+  ) {
+    return false;
+  }
 
-  const code = element.textContent ?? "";
+  const code = getElementCode(element, options.classPrefix ?? DEFAULT_CLASS_PREFIX);
   if (code.length === 0) return false;
 
   // Try language hint from class/data attributes first
@@ -77,19 +85,35 @@ function highlightElement(
 
   if (!grammar) return false;
 
-  const tokens = tokenize(code, grammar);
+  const tokens = tokenize(code, grammar, {
+    maxInputLength: options.maxInputLength,
+  });
   const html = renderToHTML(tokens, {
     theme: options.theme,
     lineNumbers: options.lineNumbers,
     classPrefix: options.classPrefix,
     wrapCode: false, // We're inside an existing <code>, don't wrap again
+    wrapLines: options.lineNumbers,
   });
 
+  internallyMutated?.add(element);
   element.innerHTML = html;
   element.setAttribute(HIGHLIGHTED_ATTR, "true");
   element.classList.add(options.classPrefix ?? DEFAULT_CLASS_PREFIX);
 
   return true;
+}
+
+function getElementCode(element: Element, classPrefix: string): string {
+  if (element.hasAttribute(HIGHLIGHTED_ATTR)) {
+    const lineContents = element.querySelectorAll(`.${classPrefix}-line-content`);
+    if (lineContents.length > 0) {
+      return [...lineContents]
+        .map((line) => line.textContent ?? "")
+        .join("\n");
+    }
+  }
+  return element.textContent ?? "";
 }
 
 /**
@@ -107,28 +131,26 @@ export function scan(options: ScanOptions): number {
     container,
     classPrefix = DEFAULT_CLASS_PREFIX,
     autoDetect = false,
+    maxInputLength,
   } = options;
 
   const root = container ?? (typeof document !== "undefined" ? document.body : null);
   if (!root) return 0;
 
   const registry = createRegistry(languages);
-  const resolvedTheme = theme ? resolveTheme(theme) : undefined;
-
-  // Apply theme CSS
-  if (resolvedTheme && typeof document !== "undefined") {
-    applyTheme(resolvedTheme, classPrefix);
-  }
+  const resolvedTheme = theme ? resolveThemeOrThrow(theme) : undefined;
 
   const elements = root.querySelectorAll(selector);
   let count = 0;
 
   for (const element of elements) {
+    if (!root.contains(element)) continue;
     const highlighted = highlightElement(element, registry, languages, {
       theme: resolvedTheme,
       lineNumbers,
       classPrefix,
       autoDetect,
+      maxInputLength,
     });
     if (highlighted) count++;
   }
@@ -152,13 +174,14 @@ export function observe(options: ScanOptions): () => void {
     container,
     classPrefix = DEFAULT_CLASS_PREFIX,
     autoDetect = false,
+    maxInputLength,
   } = options;
 
   const root = container ?? (typeof document !== "undefined" ? document.body : null);
   if (!root) return () => {};
 
   const registry = createRegistry(languages);
-  const resolvedTheme = theme ? resolveTheme(theme) : undefined;
+  const resolvedTheme = theme ? resolveThemeOrThrow(theme) : undefined;
 
   // Apply theme CSS
   let themeCleanup: (() => void) | undefined;
@@ -171,38 +194,89 @@ export function observe(options: ScanOptions): () => void {
     lineNumbers,
     classPrefix,
     autoDetect,
+    maxInputLength,
   };
 
   // Initial scan
   const elements = root.querySelectorAll(selector);
   for (const element of elements) {
+    if (!root.contains(element)) continue;
     highlightElement(element, registry, languages, highlightOpts);
   }
 
   // Set up MutationObserver
-  if (typeof MutationObserver === "undefined") return () => {};
+  if (typeof MutationObserver === "undefined") {
+    return () => themeCleanup?.();
+  }
 
+  const internallyMutated = new WeakSet<Element>();
   const observer = new MutationObserver((mutations) => {
+    const changedHighlighted = new Set<Element>();
+    const addedMatches = new Set<Element>();
+
     for (const mutation of mutations) {
+      const target =
+        mutation.target instanceof Element
+          ? mutation.target
+          : mutation.target.parentElement;
+      const highlighted = target?.closest(`[${HIGHLIGHTED_ATTR}]`);
+      if (highlighted?.matches(selector)) {
+        changedHighlighted.add(highlighted);
+      }
+
       for (const node of mutation.addedNodes) {
         if (!(node instanceof Element)) continue;
 
-        // Check if the added node itself matches
-        if (node.matches(selector)) {
-          highlightElement(node, registry, languages, highlightOpts);
+        if (
+          node.matches(selector) &&
+          !node.parentElement?.closest(`[${HIGHLIGHTED_ATTR}]`)
+        ) {
+          addedMatches.add(node);
         }
 
-        // Check descendants
         const descendants = node.querySelectorAll(selector);
         for (const desc of descendants) {
-          highlightElement(desc, registry, languages, highlightOpts);
+          if (!desc.parentElement?.closest(`[${HIGHLIGHTED_ATTR}]`)) {
+            addedMatches.add(desc);
+          }
         }
       }
+    }
+
+    for (const element of changedHighlighted) {
+      if (internallyMutated.has(element)) {
+        internallyMutated.delete(element);
+        continue;
+      }
+      if (!root.contains(element)) continue;
+      highlightElement(
+        element,
+        registry,
+        languages,
+        highlightOpts,
+        true,
+        internallyMutated,
+      );
+    }
+
+    for (const element of addedMatches) {
+      if (!root.contains(element) || element.hasAttribute(HIGHLIGHTED_ATTR)) {
+        continue;
+      }
+      highlightElement(
+        element,
+        registry,
+        languages,
+        highlightOpts,
+        false,
+        internallyMutated,
+      );
     }
   });
 
   observer.observe(root, {
     childList: true,
+    characterData: true,
     subtree: true,
   });
 

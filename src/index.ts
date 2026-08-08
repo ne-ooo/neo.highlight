@@ -8,9 +8,9 @@
  * -----------------------------------------------------------------------------------------------*/
 
 // Core API
-export { tokenize, getPlainText, createRegistry } from "./core/tokenizer";
+export { tokenize, getPlainText, createRegistry, DEFAULT_MAX_INPUT_LENGTH } from "./core/tokenizer";
 export { renderToHTML, getThemeStylesheet } from "./core/renderer";
-export { applyTheme, registerTheme, registerThemes, getTheme, getThemeCSS, resolveTheme, getDualThemeStylesheet } from "./core/themes";
+export { applyTheme, registerTheme, registerThemes, getTheme, getThemeCSS, resolveTheme, resolveThemeOrThrow, getDualThemeStylesheet } from "./core/themes";
 export { resolveGrammar } from "./core/grammar-utils";
 export { scan, observe, autoHighlight } from "./core/scanner";
 export { detectLanguage, scoreTokenization, clearDetectCache } from "./core/detect";
@@ -25,6 +25,7 @@ export type {
   TokenDefinition,
   Grammar,
   GrammarTokens,
+  TokenizeOptions,
   Theme,
   ThemeTokenColors,
   RenderOptions,

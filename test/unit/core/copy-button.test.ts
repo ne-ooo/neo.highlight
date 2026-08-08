@@ -33,6 +33,28 @@ describe("renderCopyButton", () => {
     expect(html).toContain('data-copied-label="Kopiert!"');
   });
 
+  it("escapes labels before rendering HTML", () => {
+    const label = '<img src=x onerror="alert(1)">';
+    const copiedLabel = 'done" autofocus onfocus="alert(2)';
+    const html = renderCopyButton("code", { label, copiedLabel });
+
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html;
+    const button = wrapper.querySelector("button");
+
+    expect(wrapper.querySelector("img")).toBeNull();
+    expect(button?.textContent).toBe(label);
+    expect(button?.getAttribute("data-copied-label")).toBe(copiedLabel);
+    expect(button?.hasAttribute("autofocus")).toBe(false);
+    expect(button?.hasAttribute("onfocus")).toBe(false);
+  });
+
+  it("rejects an unsafe class prefix", () => {
+    expect(() =>
+      renderCopyButton("code", { classPrefix: 'neo" onclick="alert(1)' }),
+    ).toThrow(/class prefix/i);
+  });
+
   it("uses custom class prefix", () => {
     const html = renderCopyButton("code", { classPrefix: "my-code" });
     expect(html).toContain('class="my-code-copy-button"');

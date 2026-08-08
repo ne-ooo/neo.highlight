@@ -5,10 +5,10 @@
  * -----------------------------------------------------------------------------------------------*/
 
 import { bench, describe } from "vitest";
-import { tokenize } from "../src/core/tokenizer";
-import { renderToHTML } from "../src/core/renderer";
-import { javascript } from "../src/grammars/javascript";
-import { python } from "../src/grammars/python";
+import { tokenize } from "../../src/core/tokenizer";
+import { renderToHTML } from "../../src/core/renderer";
+import { javascript } from "../../src/grammars/javascript";
+import { python } from "../../src/grammars/python";
 import {
   JS_MEDIUM,
   JS_LARGE,

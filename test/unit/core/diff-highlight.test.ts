@@ -13,6 +13,12 @@ const e = 5;`;
 
 const tokens = tokenize(code, javascript);
 
+function parseRenderedHTML(html: string): HTMLDivElement {
+  const container = document.createElement("div");
+  container.innerHTML = html;
+  return container;
+}
+
 describe("Diff Highlighting — Renderer", () => {
   it("adds diff-added class to added lines", () => {
     const html = renderToHTML(tokens, {
@@ -46,21 +52,30 @@ describe("Diff Highlighting — Renderer", () => {
     const html = renderToHTML(tokens, {
       diffHighlight: { added: [1] },
     });
-    expect(html).toContain('class="neo-hl-diff-gutter">+</span>');
+    expect(
+      parseRenderedHTML(html).querySelector(".neo-hl-diff-gutter")
+        ?.textContent,
+    ).toBe("+");
   });
 
   it("adds - gutter marker to removed lines", () => {
     const html = renderToHTML(tokens, {
       diffHighlight: { removed: [2] },
     });
-    expect(html).toContain('class="neo-hl-diff-gutter">-</span>');
+    expect(
+      parseRenderedHTML(html).querySelector(".neo-hl-diff-gutter")
+        ?.textContent,
+    ).toBe("-");
   });
 
   it("adds ~ gutter marker to modified lines", () => {
     const html = renderToHTML(tokens, {
       diffHighlight: { modified: [3] },
     });
-    expect(html).toContain('class="neo-hl-diff-gutter">~</span>');
+    expect(
+      parseRenderedHTML(html).querySelector(".neo-hl-diff-gutter")
+        ?.textContent,
+    ).toBe("~");
   });
 
   it("combines diff with line numbers", () => {
@@ -105,8 +120,10 @@ describe("Diff Highlighting — Renderer", () => {
     expect(addedCount).toBe(1);
     // Lines 2-5 should have plain line class without any diff class
     // Total lines = 5, diff lines = 1, so 4 lines are unmarked
-    const allLineSpans = html.match(/<span class="neo-hl-line">/g) ?? [];
-    expect(allLineSpans.length).toBe(4);
+    const allLineSpans = parseRenderedHTML(html).querySelectorAll(
+      ".neo-hl-line:not(.neo-hl-diff-added):not(.neo-hl-diff-removed):not(.neo-hl-diff-modified)",
+    );
+    expect(allLineSpans).toHaveLength(4);
   });
 
   it("does not wrap lines when wrapCode is false", () => {

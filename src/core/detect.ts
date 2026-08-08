@@ -17,7 +17,6 @@ import { tokenize } from "./tokenizer";
 
 const DEFAULT_MAX_LENGTH = 2000;
 const DEFAULT_MIN_SCORE = 0.15;
-const CACHE_KEY_LENGTH = 500;
 const CACHE_MAX_SIZE = 100;
 
 /** High-value token types (excluding keyword, which is scored separately). */
@@ -31,6 +30,8 @@ const HIGH_VALUE_TYPES = new Set([
 
 /** LRU cache: key → DetectResult | null */
 const detectCache = new Map<string, DetectResult | null>();
+const grammarIds = new WeakMap<Grammar, number>();
+let nextGrammarId = 1;
 
 /**
  * Clear the detection cache.
@@ -55,13 +56,16 @@ export function scoreTokenization(tokens: Token[], codeLength: number): number {
   let highValueCount = 0;
   let totalTokenNodes = 0;
 
+  for (const token of tokens) {
+    if (typeof token !== "string") matchedLength += token.length;
+  }
+
   const walk = (tokenList: Token[]): void => {
     for (const token of tokenList) {
       if (typeof token === "string") continue;
 
       const node = token as TokenNode;
       totalTokenNodes++;
-      matchedLength += node.length;
       tokenTypes.add(node.type);
 
       if (node.type === "keyword") {
@@ -116,22 +120,35 @@ export function detectLanguage(
     noCache = false,
   } = options;
 
+  if (
+    maxLength !== Number.POSITIVE_INFINITY &&
+    (!Number.isInteger(maxLength) || maxLength < 0)
+  ) {
+    throw new RangeError("maxLength must be a non-negative integer or Infinity");
+  }
+  if (!Number.isFinite(minScore) || minScore < 0 || minScore > 1) {
+    throw new RangeError("minScore must be between 0 and 1");
+  }
+
   if (code.length === 0 || grammars.length === 0) return undefined;
 
   // Truncate for performance
   const sample = code.length > maxLength ? code.slice(0, maxLength) : code;
 
   // Cache lookup
-  const cacheKey = `${grammars.map((g) => g.name).join(",")}:${sample.slice(0, CACHE_KEY_LENGTH)}`;
+  const cacheKey = createCacheKey(sample, grammars, maxLength, minScore);
   if (!noCache && detectCache.has(cacheKey)) {
-    return detectCache.get(cacheKey) ?? undefined;
+    const cached = detectCache.get(cacheKey) ?? null;
+    detectCache.delete(cacheKey);
+    detectCache.set(cacheKey, cached);
+    return cached ?? undefined;
   }
 
   // Score each grammar
   const candidates: Array<{ grammar: Grammar; score: number }> = [];
 
   for (const grammar of grammars) {
-    const tokens = tokenize(sample, grammar);
+    const tokens = tokenize(sample, grammar, { maxInputLength: maxLength });
     const score = scoreTokenization(tokens, sample.length);
     candidates.push({ grammar, score });
   }
@@ -160,6 +177,26 @@ export function detectLanguage(
   }
 
   return result;
+}
+
+function createCacheKey(
+  sample: string,
+  grammars: Grammar[],
+  maxLength: number,
+  minScore: number,
+): string {
+  const grammarKey = grammars
+    .map((grammar) => {
+      let id = grammarIds.get(grammar);
+      if (id === undefined) {
+        id = nextGrammarId++;
+        grammarIds.set(grammar, id);
+      }
+      return id;
+    })
+    .join(",");
+
+  return `${maxLength}:${minScore}:${grammarKey}:${sample}`;
 }
 
 /**

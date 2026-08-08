@@ -60,6 +60,12 @@ export interface Grammar {
   tokens: GrammarTokens;
 }
 
+/** Options controlling tokenizer resource usage. */
+export interface TokenizeOptions {
+  /** Maximum UTF-16 code units accepted per call (default: 1,000,000). */
+  maxInputLength?: number | undefined;
+}
+
 /**
  * Theme token color mapping.
  */
@@ -137,6 +143,8 @@ export interface RenderOptions {
   classPrefix?: string | undefined;
   /** Wrap in <pre><code> tags (default: true) */
   wrapCode?: boolean | undefined;
+  /** Render per-line spans without requiring a <pre><code> wrapper (default: false) */
+  wrapLines?: boolean | undefined;
   /** Line diff highlighting (added/removed/modified lines) */
   diffHighlight?: DiffHighlight | undefined;
 }
@@ -174,6 +182,8 @@ export interface ScanOptions {
   classPrefix?: string | undefined;
   /** Auto-detect language when no language hint is found (default: false) */
   autoDetect?: boolean | undefined;
+  /** Maximum UTF-16 code units accepted by the tokenizer. */
+  maxInputLength?: number | undefined;
 }
 
 /**

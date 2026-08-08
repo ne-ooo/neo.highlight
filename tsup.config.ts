@@ -29,6 +29,7 @@ export default defineConfig({
     index: "src/index.ts",
     "react/index": "src/react/index.ts",
     "vanilla/index": "src/vanilla/index.ts",
+    "worker/index": "src/worker/index.ts",
     ...getGrammarEntries(),
     ...getThemeEntries(),
   },

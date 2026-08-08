@@ -29,7 +29,15 @@ export interface ThemeContrastReport {
  * Parse hex color to RGB values
  */
 export function hexToRGB(hex: string): [number, number, number] {
-  const h = hex.replace("#", "");
+  const match = /^#([\da-f]{3}|[\da-f]{6})$/i.exec(hex);
+  if (!match?.[1]) {
+    throw new TypeError("Color must use #rgb or #rrggbb hexadecimal syntax");
+  }
+
+  const h =
+    match[1].length === 3
+      ? [...match[1]].map((digit) => digit + digit).join("")
+      : match[1];
   const r = parseInt(h.substring(0, 2), 16);
   const g = parseInt(h.substring(2, 4), 16);
   const b = parseInt(h.substring(4, 6), 16);

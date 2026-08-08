@@ -45,6 +45,36 @@ describe("getDualThemeStylesheet", () => {
     expect(css).toContain(`--neo-hl-keyword: ${githubDark.tokenColors.keyword}`);
   });
 
+  it("includes optional variables for both themes", () => {
+    const css = getDualThemeStylesheet(githubLight, githubDark);
+
+    expect(css).toContain(`--neo-hl-selection: ${githubLight.selection}`);
+    expect(css).toContain(`--neo-hl-selection: ${githubDark.selection}`);
+    expect(css).toContain(
+      `--neo-hl-line-number-active: ${githubLight.lineNumberActive}`,
+    );
+    expect(css).toContain(
+      `--neo-hl-line-number-active: ${githubDark.lineNumberActive}`,
+    );
+    expect(css).toContain(
+      `--neo-hl-diff-added-bg: ${githubLight.diffAddedBg}`,
+    );
+    expect(css).toContain(
+      `--neo-hl-diff-added-bg: ${githubDark.diffAddedBg}`,
+    );
+  });
+
+  it("generates rules for optional theme features", () => {
+    const css = getDualThemeStylesheet(githubLight, githubDark);
+
+    expect(css).toContain(".neo-hl ::selection");
+    expect(css).toContain(".neo-hl-line-highlighted .neo-hl-line-number");
+    expect(css).toContain(".neo-hl-line-highlighted { background:");
+    expect(css).toContain(".neo-hl-diff-added { background:");
+    expect(css).toContain(".neo-hl-diff-removed { background:");
+    expect(css).toContain(".neo-hl-diff-modified { background:");
+  });
+
   it("generates token classes using CSS variables", () => {
     const css = getDualThemeStylesheet(githubLight, githubDark);
     expect(css).toContain(".neo-hl-keyword { color: var(--neo-hl-keyword); }");

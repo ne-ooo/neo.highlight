@@ -24,6 +24,8 @@ export interface HighlightProps {
   classPrefix?: string;
   className?: string;
   style?: React.CSSProperties;
+  /** Maximum UTF-16 code units accepted by the tokenizer. */
+  maxInputLength?: number;
 }
 
 /**
@@ -50,6 +52,7 @@ export function Highlight({
   classPrefix: classPrefixProp,
   className,
   style,
+  maxInputLength,
 }: HighlightProps) {
   const ctx = useHighlightContext();
 
@@ -58,7 +61,7 @@ export function Highlight({
   const classPrefix = classPrefixProp ?? ctx.classPrefix;
 
   const html = useMemo(() => {
-    const tokens = tokenize(children, language);
+    const tokens = tokenize(children, language, { maxInputLength });
     return renderToHTML(tokens, {
       theme,
       lineNumbers,
@@ -68,7 +71,7 @@ export function Highlight({
       classPrefix,
       wrapCode: true,
     });
-  }, [children, language, theme, lineNumbers, highlightLines, diffHighlight, classPrefix]);
+  }, [children, language, theme, lineNumbers, highlightLines, diffHighlight, classPrefix, maxInputLength]);
 
   if (copyButton) {
     return (

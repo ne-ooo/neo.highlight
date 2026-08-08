@@ -1,8 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { tokenize, getPlainText, createRegistry } from "../../../src/core/tokenizer";
+import {
+  DEFAULT_MAX_INPUT_LENGTH,
+  tokenize,
+  getPlainText,
+  createRegistry,
+} from "../../../src/core/tokenizer";
 import { javascript } from "../../../src/grammars/javascript";
 import { typescript } from "../../../src/grammars/typescript";
 import { python } from "../../../src/grammars/python";
+import { css } from "../../../src/grammars/css";
+import { cpp } from "../../../src/grammars/cpp";
+import { jsx } from "../../../src/grammars/jsx";
+import { vue } from "../../../src/grammars/vue";
+import { less } from "../../../src/grammars/less";
+import { csv } from "../../../src/grammars/csv";
 import type { Grammar, TokenNode } from "../../../src/core/types";
 
 /* -------------------------------------------------------------------------------------------------
@@ -28,6 +39,19 @@ function getTokenTypes(tokens: ReturnType<typeof tokenize>): string[] {
   return tokens
     .filter((t): t is TokenNode => typeof t !== "string")
     .map((t) => t.type);
+}
+
+function getAllTokenTypes(tokens: ReturnType<typeof tokenize>): string[] {
+  const types: string[] = [];
+  const visit = (items: ReturnType<typeof tokenize>): void => {
+    for (const item of items) {
+      if (typeof item === "string") continue;
+      types.push(item.type);
+      if (Array.isArray(item.content)) visit(item.content);
+    }
+  };
+  visit(tokens);
+  return types;
 }
 
 /* -------------------------------------------------------------------------------------------------
@@ -194,6 +218,90 @@ describe("tokenize", () => {
     };
     const result = tokenize("hello world", grammar);
     expect(result).toEqual(["hello world"]);
+  });
+
+  it("should enforce a configurable input limit", () => {
+    const grammar: Grammar = { name: "empty", tokens: {} };
+
+    expect(() =>
+      tokenize("12345", grammar, { maxInputLength: 4 }),
+    ).toThrow(/maxInputLength/i);
+    expect(tokenize("12345", grammar, { maxInputLength: 5 })).toEqual([
+      "12345",
+    ]);
+  });
+
+  it("should reject input above the default safety limit", () => {
+    const grammar: Grammar = { name: "empty", tokens: {} };
+    const oversized = "x".repeat(DEFAULT_MAX_INPUT_LENGTH + 1);
+
+    expect(() => tokenize(oversized, grammar)).toThrow(/exceeds/i);
+  });
+
+  it(
+    "should process long unterminated constructs without regex backtracking stalls",
+    () => {
+      const source = `const value = "${"\\".repeat(50_000)}`;
+      expect(getPlainText(tokenize(source, javascript))).toBe(source);
+    },
+    2_000,
+  );
+
+  it("should let a greedy match span tokens produced by earlier rules", () => {
+    const result = tokenize('<Button title="hello">x</Button>', jsx);
+    expect(getTokenTypes(result).filter((type) => type === "tag")).toHaveLength(2);
+  });
+
+  it("should not let a greedy match consume content inside a comment", () => {
+    const result = tokenize('// <Button title="hello">', jsx);
+    expect(getTokenTypes(result)).toEqual(["comment"]);
+  });
+
+  it("should match patterns whose lookahead crosses existing token boundaries", () => {
+    const result = tokenize("foo<string>()", typescript);
+    expect(getTokenTypes(result)).toContain("generic-function");
+  });
+
+  it("should preserve compound greedy tokens in composed grammars", () => {
+    expect(getTokenTypes(tokenize('a { src: url("x.png"); }', css))).toContain("url");
+    expect(getTokenTypes(tokenize('auto s = R"tag(raw)tag";', cpp))).toContain(
+      "raw-string",
+    );
+  });
+
+  it("should tokenize Vue directives inside HTML tags", () => {
+    const result = tokenize('<div v-if="ready">{{ message }}</div>', vue);
+    expect(getAllTokenTypes(result)).toContain("directive");
+  });
+
+  it("should distinguish Less variables from CSS at-rules", () => {
+    const source =
+      '@primary: #fff;\n@import "theme.less";\n@media screen { color: @primary; }';
+    const result = tokenize(source, less);
+
+    expect(getPlainText(result)).toBe(source);
+    expect(getTokenTypes(result).filter((type) => type === "variable")).toHaveLength(
+      2,
+    );
+    expect(getTokenTypes(result).filter((type) => type === "atrule")).toHaveLength(
+      2,
+    );
+  });
+
+  it("should treat only the first CSV row as a header", () => {
+    const source = "name,age,active\nAlice,30,true\nBob,25,false";
+    const result = tokenize(source, csv);
+
+    expect(getPlainText(result)).toBe(source);
+    expect(getTokenTypes(result).filter((type) => type === "header")).toHaveLength(
+      1,
+    );
+    expect(getTokenTypes(result).filter((type) => type === "number")).toHaveLength(
+      2,
+    );
+    expect(getTokenTypes(result).filter((type) => type === "boolean")).toHaveLength(
+      2,
+    );
   });
 });
 

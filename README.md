@@ -123,6 +123,7 @@ import { dracula } from "@lpm.dev/neo.highlight/themes/dracula";
 | `classPrefix`     | `string`          | `"neo-hl"`   | CSS class prefix                      |
 | `className`       | `string`          | --           | Additional CSS class for the wrapper  |
 | `style`           | `CSSProperties`   | --           | Inline styles for the wrapper         |
+| `maxInputLength`  | `number`          | `1000000`    | Maximum tokenizer input length        |
 
 ### `<AutoHighlight>`
 
@@ -153,6 +154,7 @@ Language is detected from class names (`language-js`, `lang-python`) or the `dat
 | `classPrefix` | `string`          | `"neo-hl"`   | CSS class prefix                      |
 | `className`   | `string`          | --           | Additional CSS class for the wrapper  |
 | `style`       | `CSSProperties`   | --           | Inline styles for the wrapper         |
+| `maxInputLength` | `number`       | `1000000`    | Maximum tokenizer input length        |
 
 ### `<HighlightProvider>`
 
@@ -280,6 +282,7 @@ const html = highlight(
 | `highlightLines` | `number[]`        | --         | Lines to highlight (1-indexed)  |
 | `classPrefix`    | `string`          | `"neo-hl"` | CSS class prefix                |
 | `wrapCode`       | `boolean`         | `true`     | Wrap output in `<pre><code>`    |
+| `maxInputLength` | `number`          | `1000000`  | Maximum tokenizer input length  |
 
 ### `autoHighlight(options)`
 
@@ -345,6 +348,47 @@ const disconnect = observe({
 // Stop observing when done:
 disconnect();
 ```
+
+---
+
+## Web Worker
+
+The worker entry runs tokenization outside the main thread. It contains all built-in grammars.
+
+Create a worker module named `highlight-worker.ts`:
+
+```ts
+import "@lpm.dev/neo.highlight/worker";
+```
+
+Create the worker from the application module:
+
+```ts
+const worker = new Worker(new URL("./highlight-worker.ts", import.meta.url), {
+  type: "module",
+});
+
+worker.postMessage({
+  id: 1,
+  code: "const x = 42;",
+  language: "javascript",
+  maxInputLength: 100_000,
+});
+
+worker.addEventListener("message", (event) => {
+  if (event.data.ok) {
+    console.log(event.data.tokens);
+  } else {
+    console.error(event.data.error);
+  }
+});
+```
+
+The worker accepts built-in language names and aliases. Each response contains the request `id`.
+
+All tokenizer entry points reject input longer than 1,000,000 UTF-16 code units. Set `maxInputLength` to select a smaller limit.
+
+CAUTION: Set `maxInputLength` to `Infinity` only for trusted source code. Unlimited input can consume excessive CPU time.
 
 ---
 
@@ -765,7 +809,7 @@ Every grammar and theme is a separate module. Import only what you need.
 | All 55 grammars             | ~22 KB  |
 | All 10 themes               | ~3 KB   |
 
-The `sideEffects: false` flag in `package.json` ensures bundlers tree-shake unused exports.
+The package marks only the worker entry as side-effectful. Bundlers can tree-shake all other unused exports.
 
 ---
 
