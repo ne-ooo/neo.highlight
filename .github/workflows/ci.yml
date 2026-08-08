@@ -23,7 +23,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ["18.20.8", "22", "24"]
+        include:
+          - node: "18.20.8"
+            # A development dependency declares Node 20, but the package still
+            # supports Node 18. The remaining steps test that runtime contract.
+            install_args: "--no-engine-strict"
+          - node: "22"
+            install_args: ""
+          - node: "24"
+            install_args: ""
 
     steps:
       - name: Check out the repository
@@ -38,7 +46,9 @@ jobs:
         run: npm install --global "@lpm-registry/cli@${LPM_VERSION}"
 
       - name: Install the locked dependencies
-        run: lpm ci --no-skills --no-editor-setup --no-security-summary
+        run: >-
+          lpm ci --no-skills --no-editor-setup --no-security-summary
+          ${{ matrix.install_args }}
 
       - name: Make sure that the lockfile is unchanged
         run: git diff --exit-code -- package.json lpm.lock
