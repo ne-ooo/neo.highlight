@@ -5,6 +5,7 @@ import {
   getTheme,
   resolveTheme,
   getThemeCSS,
+  getDualThemeStylesheet,
   applyTheme,
 } from "../../../src/core/themes";
 import { githubDark } from "../../../src/themes/github-dark";
@@ -60,6 +61,12 @@ describe("getThemeCSS", () => {
     expect(css).toContain(".neo-hl-string { color: var(--neo-hl-string); }");
   });
 
+  it("should include structural styles for line rendering", () => {
+    const css = getThemeCSS(githubDark);
+    expect(css).toContain(".neo-hl-line { display: block;");
+    expect(css).toContain(".neo-hl-line-number { display: inline-block;");
+  });
+
   it("should include selection styling when defined", () => {
     const css = getThemeCSS(githubDark);
     expect(css).toContain("::selection");
@@ -69,7 +76,21 @@ describe("getThemeCSS", () => {
   it("should include line number styling when defined", () => {
     const css = getThemeCSS(githubDark);
     expect(css).toContain("--neo-hl-line-number:");
+    expect(css).toContain("--neo-hl-line-number-active:");
     expect(css).toContain(".neo-hl-line-number");
+    expect(css).toContain(
+      ".neo-hl-line-highlighted .neo-hl-line-number",
+    );
+  });
+
+  it("should expose diff colors as theme variables", () => {
+    const css = getThemeCSS(githubDark);
+    expect(css).toContain(
+      `--neo-hl-diff-added-bg: ${githubDark.diffAddedBg}`,
+    );
+    expect(css).toContain(
+      "background: var(--neo-hl-diff-added-bg)",
+    );
   });
 
   it("should include line highlight styling when defined", () => {
@@ -99,7 +120,43 @@ describe("getThemeCSS", () => {
     expect(css).toContain("--neo-hl-fg: #fff");
     expect(css).toContain("--neo-hl-keyword: #f00");
     expect(css).not.toContain("::selection");
-    expect(css).not.toContain("line-number");
+    expect(css).toContain(".neo-hl-line-number { display: inline-block;");
+  });
+
+  it("should reject CSS declaration injection in theme values", () => {
+    const malicious: Theme = {
+      name: "malicious",
+      background: "#000; } body { display: none",
+      foreground: "#fff",
+      tokenColors: { keyword: "#fff" },
+    };
+
+    expect(() => getThemeCSS(malicious)).toThrow(/background/i);
+  });
+
+  it("should reject style-element termination in theme values", () => {
+    const malicious: Theme = {
+      name: "malicious-style-tag",
+      background: "</style><script>alert(1)</script>",
+      foreground: "#fff",
+      tokenColors: { keyword: "#fff" },
+    };
+
+    expect(() => getThemeCSS(malicious)).toThrow(/background/i);
+  });
+
+  it("should reject injection in a dual-theme dark selector", () => {
+    expect(() =>
+      getDualThemeStylesheet(githubLight, githubDark, {
+        darkSelector: ".dark } body { display: none; /*",
+      }),
+    ).toThrow(/dark selector/i);
+  });
+
+  it("should reject an unsafe class prefix", () => {
+    expect(() => getThemeCSS(githubDark, "neo-hl, body")).toThrow(
+      /class prefix/i,
+    );
   });
 });
 
@@ -124,7 +181,11 @@ describe("applyTheme", () => {
     const styles = document.querySelectorAll("#neo-hl-theme-github-dark");
     expect(styles.length).toBe(1);
 
+    cleanup1?.();
+    expect(document.getElementById("neo-hl-theme-github-dark")).toBeTruthy();
+
     cleanup2?.();
+    expect(document.getElementById("neo-hl-theme-github-dark")).toBeNull();
   });
 
   it("should accept theme by name", () => {
@@ -138,8 +199,7 @@ describe("applyTheme", () => {
     cleanup?.();
   });
 
-  it("should return undefined for unknown theme name", () => {
-    const cleanup = applyTheme("nonexistent-theme");
-    expect(cleanup).toBeUndefined();
+  it("should fail explicitly for an unknown theme name", () => {
+    expect(() => applyTheme("nonexistent-theme")).toThrow(/unknown theme/i);
   });
 });

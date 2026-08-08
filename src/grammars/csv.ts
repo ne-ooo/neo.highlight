@@ -5,7 +5,7 @@ export const csv: Grammar = {
   aliases: ["tsv"],
   tokens: {
     header: {
-      pattern: /^.+$/m,
+      pattern: /^[^\r\n]+/,
       greedy: true,
       alias: "important",
       inside: {

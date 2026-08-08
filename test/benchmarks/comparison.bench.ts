@@ -8,11 +8,11 @@
 import { bench, describe } from "vitest";
 
 // --- neo.highlight ---
-import { tokenize } from "../src/core/tokenizer";
-import { renderToHTML } from "../src/core/renderer";
-import { javascript } from "../src/grammars/javascript";
-import { python } from "../src/grammars/python";
-import { html } from "../src/grammars/html";
+import { tokenize } from "../../src/core/tokenizer";
+import { renderToHTML } from "../../src/core/renderer";
+import { javascript } from "../../src/grammars/javascript";
+import { python } from "../../src/grammars/python";
+import { html } from "../../src/grammars/html";
 
 // --- Prism.js ---
 import Prism from "prismjs";

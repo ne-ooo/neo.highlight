@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LPM_VERSION: "0.73.0"
+
+jobs:
+  verify:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["18.20.8", "22", "24"]
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Install Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install LPM
+        run: npm install --global "@lpm-registry/cli@${LPM_VERSION}"
+
+      - name: Install the locked dependencies
+        run: lpm ci --no-skills --no-editor-setup --no-security-summary
+
+      - name: Make sure that the lockfile is unchanged
+        run: git diff --exit-code -- package.json lpm.lock
+
+      - name: Check the types
+        run: lpm run type-check
+
+      - name: Run the tests
+        run: lpm run test
+
+      - name: Build the package
+        run: lpm run build
+
+      - name: Test the built ESM and CommonJS packages
+        run: lpm run test:package
+
+  quality:
+    name: Coverage, benchmarks, audit, and package check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Install Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: "22"
+
+      - name: Install LPM
+        run: npm install --global "@lpm-registry/cli@${LPM_VERSION}"
+
+      - name: Install the locked dependencies
+        run: lpm ci --no-skills --no-editor-setup --no-security-summary
+
+      - name: Audit the dependencies
+        run: lpm run security:audit
+
+      - name: Measure the test coverage
+        run: lpm run test:coverage
+
+      - name: Run the benchmarks
+        run: lpm run bench
+
+      - name: Check the publishable package
+        run: lpm run package:check

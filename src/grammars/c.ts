@@ -22,6 +22,7 @@ export const c: Grammar = {
     "macro-directive": {
       pattern: /(^[ \t]*)#\s*\w+(?:[^\r\n\\]|\\(?:\r\n?|\n|(?=[\s\S])))*(?:\\(?:\r\n?|\n)(?:[^\r\n\\]|\\(?:\r\n?|\n|(?=[\s\S])))*)*/m,
       lookbehind: true,
+      greedy: true,
       alias: "important",
       inside: {
         directive: {

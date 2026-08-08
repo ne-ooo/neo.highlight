@@ -5,3 +5,16 @@ dist
 coverage
 
 PLAN
+
+# LPM wrapper tree (auto-generated)
+.lpm/wrappers/
+
+# LPM hoisted state (auto-generated)
+.lpm/hoisted/
+
+# LPM local install/audit state (auto-generated)
+.lpm/.install.lock*
+.lpm/audit-cache.json
+.lpm/build-state.json
+.lpm/install-hash
+.lpm/trust-snapshot.json

@@ -12,6 +12,8 @@ export interface UseHighlightOptions {
   diffHighlight?: DiffHighlight;
   classPrefix?: string;
   wrapCode?: boolean;
+  /** Maximum UTF-16 code units accepted by the tokenizer. */
+  maxInputLength?: number;
 }
 
 export interface UseHighlightResult {
@@ -41,11 +43,12 @@ export function useHighlight(
     diffHighlight,
     classPrefix = ctx.classPrefix,
     wrapCode = false,
+    maxInputLength,
   } = options;
 
   const tokens = useMemo(
-    () => tokenize(code, language),
-    [code, language],
+    () => tokenize(code, language, { maxInputLength }),
+    [code, language, maxInputLength],
   );
 
   const html = useMemo(

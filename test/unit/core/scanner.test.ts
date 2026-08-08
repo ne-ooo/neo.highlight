@@ -22,6 +22,7 @@ describe("scan", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     document.body.removeChild(container);
   });
 
@@ -124,6 +125,25 @@ describe("scan", () => {
     const code = container.querySelector("code");
     expect(code?.classList.contains("neo-hl")).toBe(true);
   });
+
+  it("should render line numbers inside an existing code element", () => {
+    container.appendChild(createCodeBlock("const x = 1;\nlet y = 2;", "js"));
+    scan({ languages: [javascript], container, lineNumbers: true });
+
+    const code = container.querySelector("code");
+    expect(code?.querySelectorAll(".neo-hl-line")).toHaveLength(2);
+    expect(code?.querySelectorAll(".neo-hl-line-number")).toHaveLength(2);
+    expect(code?.querySelector("pre")).toBeNull();
+  });
+
+  it("should not leak a stylesheet during a one-shot themed scan", () => {
+    container.appendChild(createCodeBlock("const x = 42;", "js"));
+    scan({ languages: [javascript], container, theme: githubDark });
+
+    expect(document.getElementById("neo-hl-theme-github-dark")).toBeNull();
+    expect(container.querySelector(".neo-hl-keyword")?.getAttribute("style"))
+      .toContain(githubDark.tokenColors.keyword);
+  });
 });
 
 describe("observe", () => {
@@ -135,6 +155,7 @@ describe("observe", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     document.body.removeChild(container);
   });
 
@@ -151,6 +172,53 @@ describe("observe", () => {
     expect(typeof cleanup).toBe("function");
     cleanup();
   });
+
+  it("should re-highlight code when its text changes", async () => {
+    container.appendChild(createCodeBlock("const x = 1;", "js"));
+    const cleanup = observe({ languages: [javascript], container });
+    const code = container.querySelector("code")!;
+
+    code.textContent = "let updated = 2;";
+
+    await vi.waitFor(() => {
+      expect(code.querySelector(".neo-hl-keyword")?.textContent).toBe("let");
+      expect(code.textContent).toBe("let updated = 2;");
+    });
+    cleanup();
+  });
+
+  it("should not process generated spans with a broad selector", async () => {
+    const cleanup = observe({
+      languages: [javascript],
+      container,
+      selector: "span",
+    });
+    const target = document.createElement("span");
+    target.className = "language-js";
+    target.textContent = "const x = 1;";
+    container.appendChild(target);
+
+    await vi.waitFor(() => {
+      expect(target.getAttribute("data-neo-highlighted")).toBe("true");
+      expect(
+        container.querySelectorAll("[data-neo-highlighted]"),
+      ).toHaveLength(1);
+    });
+    cleanup();
+  });
+
+  it("should release its theme when MutationObserver is unavailable", () => {
+    vi.stubGlobal("MutationObserver", undefined);
+    const cleanup = observe({
+      languages: [javascript],
+      container,
+      theme: githubDark,
+    });
+
+    expect(document.getElementById("neo-hl-theme-github-dark")).toBeTruthy();
+    cleanup();
+    expect(document.getElementById("neo-hl-theme-github-dark")).toBeNull();
+  });
 });
 
 describe("autoHighlight", () => {
@@ -162,6 +230,7 @@ describe("autoHighlight", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     document.body.removeChild(container);
   });
 

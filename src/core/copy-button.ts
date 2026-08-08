@@ -7,6 +7,12 @@ const DEFAULT_LABEL = "Copy";
 const DEFAULT_COPIED_LABEL = "Copied!";
 const COPIED_DURATION = 2000;
 
+import {
+  assertSafeCssIdentifier,
+  escapeHTML,
+  escapeHTMLAttribute,
+} from "./safety";
+
 export interface CopyButtonOptions {
   /** Button label (default: "Copy") */
   label?: string | undefined;
@@ -31,13 +37,14 @@ export function renderCopyButton(code: string, options: CopyButtonOptions = {}):
     classPrefix = DEFAULT_CLASS_PREFIX,
   } = options;
 
-  const escapedCode = code
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  assertSafeCssIdentifier(classPrefix, "class prefix");
 
-  return `<button class="${classPrefix}-copy-button" data-code="${escapedCode}" data-label="${label}" data-copied-label="${copiedLabel}" type="button" aria-label="${label}">${label}</button>`;
+  const escapedCode = escapeHTMLAttribute(code);
+  const escapedLabel = escapeHTML(label);
+  const labelAttribute = escapeHTMLAttribute(label);
+  const copiedLabelAttribute = escapeHTMLAttribute(copiedLabel);
+
+  return `<button class="${classPrefix}-copy-button" data-code="${escapedCode}" data-label="${labelAttribute}" data-copied-label="${copiedLabelAttribute}" type="button" aria-label="${labelAttribute}">${escapedLabel}</button>`;
 }
 
 /**
@@ -91,6 +98,8 @@ export function initCopyButtons(
 ): () => void {
   const root = container ?? (typeof document !== "undefined" ? document.body : null);
   if (!root) return () => {};
+
+  assertSafeCssIdentifier(classPrefix, "class prefix");
 
   const buttons = root.querySelectorAll<HTMLButtonElement>(`.${classPrefix}-copy-button`);
   const cleanups: Array<() => void> = [];

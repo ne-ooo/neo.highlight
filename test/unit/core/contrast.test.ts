@@ -26,6 +26,17 @@ describe("contrast utilities", () => {
       expect(hexToRGB("#00ff00")).toEqual([0, 255, 0]);
       expect(hexToRGB("#0000ff")).toEqual([0, 0, 255]);
     });
+
+    it("parses three-digit hex colors", () => {
+      expect(hexToRGB("#fff")).toEqual([255, 255, 255]);
+      expect(hexToRGB("#0aF")).toEqual([0, 170, 255]);
+    });
+
+    it("rejects malformed or unsupported colors", () => {
+      for (const color of ["fff", "#ff", "#ffff", "#gggggg", "red", ""]) {
+        expect(() => hexToRGB(color)).toThrow(TypeError);
+      }
+    });
   });
 
   describe("relativeLuminance", () => {

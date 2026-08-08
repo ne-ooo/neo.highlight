@@ -14,6 +14,8 @@ export interface AutoHighlightProps {
   style?: React.CSSProperties;
   /** Auto-detect language when no language hint is found */
   autoDetect?: boolean;
+  /** Maximum UTF-16 code units accepted by the tokenizer. */
+  maxInputLength?: number;
 }
 
 /**
@@ -37,6 +39,7 @@ export function AutoHighlight({
   className,
   style,
   autoDetect,
+  maxInputLength,
 }: AutoHighlightProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ctx = useHighlightContext();
@@ -59,10 +62,11 @@ export function AutoHighlight({
       classPrefix,
       observe: true,
       autoDetect,
+      maxInputLength,
     });
 
     return cleanup;
-  }, [selector, languages, theme, lineNumbers, classPrefix, autoDetect]);
+  }, [selector, languages, theme, lineNumbers, classPrefix, autoDetect, maxInputLength]);
 
   return (
     <div ref={containerRef} className={className} style={style}>

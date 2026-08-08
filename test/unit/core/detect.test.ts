@@ -10,7 +10,7 @@ import { bash } from "../../../src/grammars/bash";
 import { rust } from "../../../src/grammars/rust";
 import { go } from "../../../src/grammars/go";
 import { sql } from "../../../src/grammars/sql";
-import type { Grammar } from "../../../src/core/types";
+import type { Grammar, Token } from "../../../src/core/types";
 
 const allGrammars = [javascript, python, html, css, json, bash, rust, go, sql];
 
@@ -46,6 +46,21 @@ describe("scoreTokenization", () => {
     const complexScore = scoreTokenization(tokenize(complex, javascript), complex.length);
     expect(complexScore).toBeGreaterThan(simpleScore);
   });
+
+  it("does not double-count nested token lengths as coverage", () => {
+    const flat: Token[] = [
+      { type: "comment", content: "hello", length: 5 },
+    ];
+    const nested: Token[] = [
+      {
+        type: "comment",
+        content: [{ type: "comment", content: "hello", length: 5 }],
+        length: 5,
+      },
+    ];
+
+    expect(scoreTokenization(nested, 10)).toBe(scoreTokenization(flat, 10));
+  });
 });
 
 describe("detectLanguage", () => {
@@ -55,6 +70,15 @@ describe("detectLanguage", () => {
 
   it("returns undefined for empty grammars array", () => {
     expect(detectLanguage("const x = 42;", [])).toBeUndefined();
+  });
+
+  it("rejects invalid detection limits", () => {
+    expect(() =>
+      detectLanguage("const x = 42;", allGrammars, { maxLength: -1 }),
+    ).toThrow(/maxLength/i);
+    expect(() =>
+      detectLanguage("const x = 42;", allGrammars, { minScore: 1.1 }),
+    ).toThrow(/minScore/i);
   });
 
   it("detects JavaScript", () => {
@@ -211,6 +235,53 @@ describe("detectLanguage", () => {
     expect(shortResult).toBeUndefined();
     // With full length, should detect JS
     expect(fullResult).toBeDefined();
+  });
+
+  it("includes minScore in the cache key", () => {
+    const code = `const x = 42; function hello() { return "world"; }`;
+    expect(detectLanguage(code, allGrammars, { minScore: 0 })).toBeDefined();
+    expect(detectLanguage(code, allGrammars, { minScore: 1 })).toBeUndefined();
+  });
+
+  it("includes content after the first 500 characters in the cache key", () => {
+    const grammarA: Grammar = {
+      name: "a",
+      tokens: { marker: /marker-a/ },
+    };
+    const grammarB: Grammar = {
+      name: "b",
+      tokens: { marker: /marker-b/ },
+    };
+    const prefix = "x".repeat(500);
+
+    expect(
+      detectLanguage(`${prefix}marker-a`, [grammarA, grammarB], {
+        minScore: 0.01,
+      })?.grammar,
+    ).toBe(grammarA);
+    expect(
+      detectLanguage(`${prefix}marker-b`, [grammarA, grammarB], {
+        minScore: 0.01,
+      })?.grammar,
+    ).toBe(grammarB);
+  });
+
+  it("keys cached results by grammar identity, not only grammar name", () => {
+    const grammarA: Grammar = {
+      name: "custom",
+      tokens: { marker: /alpha/ },
+    };
+    const grammarB: Grammar = {
+      name: "custom",
+      tokens: { marker: /beta/ },
+    };
+
+    expect(
+      detectLanguage("alpha", [grammarA], { minScore: 0.01 })?.grammar,
+    ).toBe(grammarA);
+    expect(
+      detectLanguage("alpha", [grammarB], { minScore: 0.01 }),
+    ).toBeUndefined();
   });
 
   it("caches results", () => {

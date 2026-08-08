@@ -15,7 +15,16 @@ import type {
   TokenDefinition,
   TokenNode,
   TokenPattern,
+  TokenizeOptions,
 } from "./types";
+
+export const DEFAULT_MAX_INPUT_LENGTH = 1_000_000;
+
+const globalPatternCache = new WeakMap<RegExp, RegExp>();
+const compiledGrammarCache = new WeakMap<
+  GrammarTokens,
+  Array<{ tokenType: string; patterns: TokenPattern[] }>
+>();
 
 /**
  * Tokenize source code using a grammar definition.
@@ -24,7 +33,24 @@ import type {
  * @param grammar - The grammar definition to use
  * @returns Array of tokens (strings for unmatched text, TokenNode for matched tokens)
  */
-export function tokenize(code: string, grammar: Grammar): Token[] {
+export function tokenize(
+  code: string,
+  grammar: Grammar,
+  options: TokenizeOptions = {},
+): Token[] {
+  const maxInputLength = options.maxInputLength ?? DEFAULT_MAX_INPUT_LENGTH;
+  if (
+    maxInputLength !== Number.POSITIVE_INFINITY &&
+    (!Number.isInteger(maxInputLength) || maxInputLength < 0)
+  ) {
+    throw new RangeError("maxInputLength must be a non-negative integer or Infinity");
+  }
+  if (code.length > maxInputLength) {
+    throw new RangeError(
+      `Input length ${code.length} exceeds maxInputLength ${maxInputLength}`,
+    );
+  }
+
   const tokens: Token[] = [code];
   matchGrammar(tokens, grammar.tokens, 0);
   return tokens;
@@ -45,225 +71,234 @@ function normalizeDefinition(definition: TokenDefinition): TokenPattern[] {
   return [definition];
 }
 
+function compileGrammarTokens(
+  grammarTokens: GrammarTokens,
+): Array<{ tokenType: string; patterns: TokenPattern[] }> {
+  const cached = compiledGrammarCache.get(grammarTokens);
+  if (cached) return cached;
+
+  const compiled: Array<{ tokenType: string; patterns: TokenPattern[] }> = [];
+  for (const tokenType of Object.keys(grammarTokens)) {
+    const definition = grammarTokens[tokenType];
+    if (definition !== undefined) {
+      compiled.push({ tokenType, patterns: normalizeDefinition(definition) });
+    }
+  }
+  compiledGrammarCache.set(grammarTokens, compiled);
+  return compiled;
+}
+
 /**
  * Ensure a regex has the global flag, preserving other flags.
  */
 function ensureGlobal(pattern: RegExp): RegExp {
-  if (pattern.global) return pattern;
+  const cached = globalPatternCache.get(pattern);
+  if (cached) return cached;
+
   const flags = pattern.flags.includes("g")
     ? pattern.flags
     : pattern.flags + "g";
-  return new RegExp(pattern.source, flags);
+  const compiled = new RegExp(pattern.source, flags);
+  globalPatternCache.set(pattern, compiled);
+  return compiled;
 }
 
 /**
- * Apply grammar tokens to the token array, replacing string tokens with matched TokenNodes.
+ * Apply grammar tokens while preserving the original source positions.
+ *
+ * Every pattern runs against the complete source text. Non-greedy matches can
+ * replace only a single unmatched string segment. Greedy matches can span
+ * tokens created by earlier rules, but they cannot replace a match contained
+ * entirely within one earlier token. This preserves higher-priority comments
+ * while allowing compound constructs such as JSX tags, CSS URLs, and C++ raw
+ * strings to be recognized after their inner punctuation/string tokens.
  */
 function matchGrammar(
   tokens: Token[],
   grammarTokens: GrammarTokens,
-  startIndex: number,
+  depth: number,
 ): void {
-  for (const tokenType of Object.keys(grammarTokens)) {
-    const definition = grammarTokens[tokenType];
-    if (definition === undefined) continue;
+  if (depth > 100) {
+    throw new RangeError("Grammar nesting exceeds the supported depth");
+  }
 
-    const patterns = normalizeDefinition(definition);
-
+  for (const { tokenType, patterns } of compileGrammarTokens(grammarTokens)) {
     for (const patternObj of patterns) {
       const regex = ensureGlobal(patternObj.pattern);
-
-      for (let i = startIndex; i < tokens.length; i++) {
-        const token = tokens[i];
-
-        // Skip already-matched tokens
-        if (typeof token !== "string") continue;
-
-        regex.lastIndex = 0;
-        const match = regex.exec(token);
-        if (!match) continue;
-
-        let matchStr = match[0];
-        let matchIndex = match.index;
-
-        // Handle lookbehind
-        if (patternObj.lookbehind && match[1] !== undefined) {
-          const lookbehindLength = match[1].length;
-          matchIndex += lookbehindLength;
-          matchStr = matchStr.slice(lookbehindLength);
-        }
-
-        if (matchStr.length === 0) continue;
-
-        // Handle greedy matching
-        if (patternObj.greedy) {
-          const greedyResult = handleGreedy(
-            tokens,
-            i,
-            regex,
-            patternObj,
-            tokenType,
-          );
-          if (greedyResult !== null) {
-            i = greedyResult;
-            continue;
-          }
-        }
-
-        // Create the matched token
-        let content: string | Token[] = matchStr;
-        if (patternObj.inside) {
-          const innerTokens: Token[] = [matchStr];
-          matchGrammar(innerTokens, patternObj.inside, 0);
-          content = innerTokens;
-        }
-
-        const tokenNode: TokenNode = {
-          type: tokenType,
-          content,
-          length: matchStr.length,
-        };
-
-        if (patternObj.alias) {
-          tokenNode.alias = patternObj.alias;
-        }
-
-        // Split the string token: before | matched | after
-        const before = token.slice(0, matchIndex);
-        const after = token.slice(matchIndex + matchStr.length);
-
-        const newTokens: Token[] = [];
-        if (before) newTokens.push(before);
-        newTokens.push(tokenNode);
-        if (after) newTokens.push(after);
-
-        tokens.splice(i, 1, ...newTokens);
-
-        // Adjust index to skip past the newly inserted matched token
-        i += newTokens.indexOf(tokenNode);
-      }
+      applyPattern(tokens, regex, patternObj, tokenType, depth);
     }
   }
 }
 
-/**
- * Handle greedy token matching — looks at surrounding string context for a better match.
- * Returns the new index to continue from, or null if greedy matching didn't apply.
- */
-function handleGreedy(
+interface SourceMatch {
+  start: number;
+  end: number;
+  text: string;
+}
+
+interface TokenSpan {
+  token: Token;
+  start: number;
+  end: number;
+}
+
+function applyPattern(
   tokens: Token[],
-  currentIndex: number,
   regex: RegExp,
   patternObj: TokenPattern,
   tokenType: string,
-): number | null {
-  // Reconstruct the full string from adjacent string tokens and the current position
-  let combinedStr = "";
-  let startTokenIndex = currentIndex;
-  let offset = 0;
-
-  // Walk backwards to find contiguous string tokens
-  for (let j = currentIndex; j >= 0; j--) {
-    const t = tokens[j];
-    if (typeof t !== "string") {
-      if (j < currentIndex) break;
-      return null; // Current token must be a string
-    }
-    combinedStr = t + combinedStr;
-    startTokenIndex = j;
-    offset += t.length;
-  }
-
-  // The offset for the current token within combinedStr
-  offset = combinedStr.length - (tokens[currentIndex] as string).length;
-
-  // Walk forward to find contiguous string tokens
-  for (let j = currentIndex + 1; j < tokens.length; j++) {
-    const t = tokens[j];
-    if (typeof t !== "string") break;
-    combinedStr += t;
-  }
-
-  // Try to match in the combined string
+  depth: number,
+): void {
+  const source = tokens.map(getTokenText).join("");
+  const matches: SourceMatch[] = [];
   regex.lastIndex = 0;
-  const match = regex.exec(combinedStr);
-  if (!match) return null;
-
-  let matchStr = match[0];
-  let matchIndex = match.index;
-
-  if (patternObj.lookbehind && match[1] !== undefined) {
-    const lookbehindLength = match[1].length;
-    matchIndex += lookbehindLength;
-    matchStr = matchStr.slice(lookbehindLength);
-  }
-
-  if (matchStr.length === 0) return null;
-
-  // Find which tokens are affected by this match
-  let pos = 0;
-  let spliceStart = startTokenIndex;
-  let spliceCount = 0;
-
-  for (let j = startTokenIndex; j < tokens.length; j++) {
-    const t = tokens[j]!;
-    const len = typeof t === "string" ? t.length : t.length;
-    if (pos + len > matchIndex && pos < matchIndex + matchStr.length) {
-      if (spliceCount === 0) spliceStart = j;
-      spliceCount++;
+  for (let match = regex.exec(source); match; match = regex.exec(source)) {
+    const fullText = match[0];
+    if (fullText.length === 0) {
+      regex.lastIndex += 1;
+      continue;
     }
-    pos += len;
-    if (pos >= matchIndex + matchStr.length) break;
+
+    const lookbehindLength =
+      patternObj.lookbehind && match[1] !== undefined ? match[1].length : 0;
+    const text = fullText.slice(lookbehindLength);
+    if (text.length === 0) continue;
+
+    const start = match.index + lookbehindLength;
+    matches.push({ start, end: start + text.length, text });
   }
 
-  // Only apply greedy match if the region contains the current token
-  if (spliceStart > currentIndex || spliceStart + spliceCount <= currentIndex) {
-    return null;
+  if (matches.length === 0) return;
+
+  const spans: TokenSpan[] = [];
+  let sourceOffset = 0;
+  for (const token of tokens) {
+    const end = sourceOffset + getTokenLength(token);
+    spans.push({ token, start: sourceOffset, end });
+    sourceOffset = end;
   }
 
-  // Reconstruct the string that this splice covers
-  let splicedStr = "";
-  for (let j = spliceStart; j < spliceStart + spliceCount; j++) {
-    const t = tokens[j]!;
-    splicedStr += typeof t === "string" ? t : getTokenText(t);
+  const accepted: SourceMatch[] = [];
+  let spanIndex = 0;
+
+  for (const match of matches) {
+    while (spanIndex < spans.length && spans[spanIndex]!.end <= match.start) {
+      spanIndex++;
+    }
+    if (spanIndex >= spans.length) break;
+
+    const firstIndex = spanIndex;
+    let lastIndex = firstIndex;
+    while (spans[lastIndex]!.end < match.end && lastIndex + 1 < spans.length) {
+      lastIndex++;
+    }
+    if (spans[lastIndex]!.end < match.end) continue;
+
+    const containedInOneToken = firstIndex === lastIndex;
+    const startsInPlainText = typeof spans[firstIndex]!.token === "string";
+    const canReplace = patternObj.greedy
+      ? startsInPlainText || !containedInOneToken
+      : containedInOneToken && startsInPlainText;
+    if (canReplace) accepted.push(match);
   }
 
-  // Calculate relative match position within the spliced region
-  let relativeStart = 0;
-  for (let j = startTokenIndex; j < spliceStart; j++) {
-    const t = tokens[j]!;
-    relativeStart += typeof t === "string" ? t.length : t.length;
+  if (accepted.length === 0) return;
+
+  const output: Token[] = [];
+  let emitOffset = 0;
+  let emitSpanIndex = 0;
+
+  for (const match of accepted) {
+    emitOriginalRange(
+      spans,
+      emitOffset,
+      match.start,
+      output,
+      emitSpanIndex,
+    );
+
+    let content: string | Token[] = match.text;
+    if (patternObj.inside) {
+      const innerTokens: Token[] = [match.text];
+      matchGrammar(innerTokens, patternObj.inside, depth + 1);
+      content = innerTokens;
+    }
+
+    const tokenNode: TokenNode = {
+      type: tokenType,
+      content,
+      length: match.text.length,
+    };
+    if (patternObj.alias) tokenNode.alias = patternObj.alias;
+
+    appendToken(output, tokenNode);
+    emitOffset = match.end;
+    while (
+      emitSpanIndex < spans.length &&
+      spans[emitSpanIndex]!.end <= emitOffset
+    ) {
+      emitSpanIndex++;
+    }
   }
-  const relMatchIndex = matchIndex - relativeStart;
 
-  let content: string | Token[] = matchStr;
-  if (patternObj.inside) {
-    const innerTokens: Token[] = [matchStr];
-    matchGrammar(innerTokens, patternObj.inside, 0);
-    content = innerTokens;
+  emitOriginalRange(
+    spans,
+    emitOffset,
+    source.length,
+    output,
+    emitSpanIndex,
+  );
+  tokens.length = 0;
+  for (const token of output) tokens.push(token);
+}
+
+function emitOriginalRange(
+  spans: TokenSpan[],
+  from: number,
+  to: number,
+  output: Token[],
+  startSpanIndex: number,
+): void {
+  if (from >= to) return;
+
+  let index = startSpanIndex;
+  while (index < spans.length && spans[index]!.end <= from) index++;
+
+  while (index < spans.length) {
+    const span = spans[index]!;
+    if (span.start >= to) break;
+
+    const pieceStart = Math.max(from, span.start);
+    const pieceEnd = Math.min(to, span.end);
+    if (pieceStart < pieceEnd) {
+      if (pieceStart === span.start && pieceEnd === span.end) {
+        appendToken(output, span.token);
+      } else {
+        const text = getTokenText(span.token).slice(
+          pieceStart - span.start,
+          pieceEnd - span.start,
+        );
+        appendToken(output, text);
+      }
+    }
+
+    if (span.end >= to) break;
+    index++;
   }
+}
 
-  const tokenNode: TokenNode = {
-    type: tokenType,
-    content,
-    length: matchStr.length,
-  };
-
-  if (patternObj.alias) {
-    tokenNode.alias = patternObj.alias;
+function appendToken(tokens: Token[], token: Token): void {
+  if (token === "") return;
+  const previous = tokens[tokens.length - 1];
+  if (typeof previous === "string" && typeof token === "string") {
+    tokens[tokens.length - 1] = previous + token;
+  } else {
+    tokens.push(token);
   }
+}
 
-  const before = splicedStr.slice(0, relMatchIndex);
-  const after = splicedStr.slice(relMatchIndex + matchStr.length);
-
-  const newTokens: Token[] = [];
-  if (before) newTokens.push(before);
-  newTokens.push(tokenNode);
-  if (after) newTokens.push(after);
-
-  tokens.splice(spliceStart, spliceCount, ...newTokens);
-
-  return spliceStart + newTokens.indexOf(tokenNode);
+function getTokenLength(token: Token): number {
+  return typeof token === "string" ? token.length : token.length;
 }
 
 /**

@@ -289,13 +289,13 @@ git clone https://github.com/ne-ooo/neo.highlight.git
 cd neo.highlight
 
 # Install dependencies
-pnpm install
+lpm install
 
 # Run all benchmarks
-pnpm bench
+lpm run bench
 
 # Run only comparison benchmarks
-npx vitest bench bench/comparison.bench.ts
+lpm exec vitest bench --run test/benchmarks/comparison.bench.ts
 ```
 
 ## Benchmark Methodology

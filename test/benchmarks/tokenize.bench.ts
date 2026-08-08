@@ -3,10 +3,10 @@
  * -----------------------------------------------------------------------------------------------*/
 
 import { bench, describe } from "vitest";
-import { tokenize } from "../src/core/tokenizer";
-import { javascript } from "../src/grammars/javascript";
-import { python } from "../src/grammars/python";
-import { html } from "../src/grammars/html";
+import { tokenize } from "../../src/core/tokenizer";
+import { javascript } from "../../src/grammars/javascript";
+import { python } from "../../src/grammars/python";
+import { html } from "../../src/grammars/html";
 import {
   JS_SMALL,
   JS_MEDIUM,

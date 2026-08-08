@@ -7,6 +7,12 @@ import { python } from "../../../src/grammars/python";
 import { githubDark } from "../../../src/themes/github-dark";
 import type { Token, TokenNode } from "../../../src/core/types";
 
+function parseRenderedHTML(html: string): HTMLDivElement {
+  const container = document.createElement("div");
+  container.innerHTML = html;
+  return container;
+}
+
 describe("renderToHTML", () => {
   it("should render plain text tokens", () => {
     const tokens: Token[] = ["hello world"];
@@ -50,6 +56,13 @@ describe("renderToHTML", () => {
     const tokens: Token[] = ["hello"];
     const html = renderToHTML(tokens, { language: "javascript" });
     expect(html).toContain('data-language="javascript"');
+  });
+
+  it("should escape the complete data-language attribute", () => {
+    const html = renderToHTML(["hello"], {
+      language: 'js&<"\'',
+    });
+    expect(html).toContain('data-language="js&amp;&lt;&quot;&#39;"');
   });
 
   it("should handle token aliases", () => {
@@ -107,12 +120,67 @@ describe("renderToHTML", () => {
     expect(html).toContain('class="hl-keyword"');
   });
 
+  it("should reject unsafe class names from custom tokens", () => {
+    const tokens: Token[] = [
+      {
+        type: 'keyword" onmouseover="alert(1)',
+        content: "const",
+        length: 5,
+      },
+    ];
+    expect(() => renderToHTML(tokens, { wrapCode: false })).toThrow(
+      /token type/i,
+    );
+  });
+
+  it("should reject unsafe aliases from custom tokens", () => {
+    const tokens: Token[] = [
+      {
+        type: "keyword",
+        alias: 'string\" onmouseover=\"alert(1)',
+        content: "const",
+        length: 5,
+      },
+    ];
+    expect(() => renderToHTML(tokens, { wrapCode: false })).toThrow(
+      /token alias/i,
+    );
+  });
+
+  it("should reject an unsafe class prefix", () => {
+    expect(() =>
+      renderToHTML(["hello"], {
+        classPrefix: 'neo" onmouseover="alert(1)',
+      }),
+    ).toThrow(/class prefix/i);
+  });
+
   it("should render line numbers when enabled", () => {
     const tokens: Token[] = ["line1\nline2\nline3"];
     const html = renderToHTML(tokens, { lineNumbers: true });
-    expect(html).toContain('class="neo-hl-line-number">1</span>');
-    expect(html).toContain('class="neo-hl-line-number">2</span>');
-    expect(html).toContain('class="neo-hl-line-number">3</span>');
+    const numbers = parseRenderedHTML(html).querySelectorAll(
+      ".neo-hl-line-number",
+    );
+    expect([...numbers].map((number) => number.textContent)).toEqual([
+      "1",
+      "2",
+      "3",
+    ]);
+  });
+
+  it("should use the active line-number color on highlighted lines", () => {
+    const html = renderToHTML(["line1\nline2"], {
+      theme: githubDark,
+      lineNumbers: true,
+      highlightLines: [2],
+    });
+    const line2Number = parseRenderedHTML(html).querySelector(
+      ".neo-hl-line-highlighted .neo-hl-line-number",
+    );
+
+    expect(line2Number?.getAttribute("style")).toContain(
+      `var(--neo-hl-line-number-active, ${githubDark.lineNumberActive})`,
+    );
   });
 
   it("should highlight specific lines", () => {
@@ -130,6 +198,14 @@ describe("renderToHTML", () => {
     const html = renderToHTML(tokens, { theme: githubDark });
     expect(html).toContain("background:");
     expect(html).toContain(githubDark.background);
+  });
+
+  it("should apply token colors without a separate stylesheet", () => {
+    const tokens = tokenize("const x = 42;", javascript);
+    const html = renderToHTML(tokens, { theme: githubDark });
+    expect(html).toContain(
+      `color: var(--neo-hl-keyword, ${githubDark.tokenColors.keyword})`,
+    );
   });
 
   it("should render real JavaScript code correctly", () => {
@@ -158,14 +234,18 @@ describe("renderToHTML", () => {
       ];
       const html = renderToHTML(tokens, { lineNumbers: true });
 
-      // Each neo-hl-line should have balanced open/close spans
-      const lineSpans = html.match(/<span class="neo-hl-line">.*?<\/span><\/span>(?:<\/span>)*/g);
-      expect(lineSpans).not.toBeNull();
-      for (const line of lineSpans!) {
-        const opens = (line.match(/<span/g) || []).length;
-        const closes = (line.match(/<\/span>/g) || []).length;
-        expect(opens).toBe(closes);
-      }
+      const container = parseRenderedHTML(html);
+      const code = container.querySelector("code");
+      const lines = code?.querySelectorAll(":scope > .neo-hl-line") ?? [];
+
+      expect(lines).toHaveLength(2);
+      expect(code?.children).toHaveLength(2);
+      expect(lines[0]?.querySelector(".neo-hl-selector")?.textContent).toBe(
+        "first",
+      );
+      expect(lines[1]?.querySelector(".neo-hl-selector")?.textContent).toBe(
+        "second",
+      );
     });
 
     it("each line should contain exactly one line-number", () => {
@@ -197,11 +277,12 @@ describe("renderToHTML", () => {
       ];
       const html = renderToHTML(tokens, { lineNumbers: true });
 
-      // Split by line boundaries — each segment should only have ONE line-number
-      const segments = html.split(/<span class="neo-hl-line">/g).filter(Boolean);
-      for (const seg of segments) {
-        const lineNumCount = (seg.match(/neo-hl-line-number/g) || []).length;
-        expect(lineNumCount).toBeLessThanOrEqual(1);
+      const lines = parseRenderedHTML(html).querySelectorAll(".neo-hl-line");
+
+      expect(lines).toHaveLength(2);
+      for (const line of lines) {
+        expect(line.querySelectorAll(".neo-hl-line")).toHaveLength(0);
+        expect(line.querySelectorAll(".neo-hl-line-number")).toHaveLength(1);
       }
     });
 
@@ -215,10 +296,10 @@ describe("renderToHTML", () => {
       expect(numbers.length).toBe(4);
 
       // Each neo-hl-line should have exactly 1 line-number
-      const lineBlocks = html.split(/<span class="neo-hl-line">/g).filter(s => s.includes("neo-hl-line-number"));
-      for (const block of lineBlocks) {
-        const count = (block.match(/neo-hl-line-number/g) || []).length;
-        expect(count).toBe(1);
+      const lines = parseRenderedHTML(html).querySelectorAll(".neo-hl-line");
+      expect(lines).toHaveLength(4);
+      for (const line of lines) {
+        expect(line.querySelectorAll(".neo-hl-line-number")).toHaveLength(1);
       }
     });
 
@@ -231,9 +312,12 @@ describe("renderToHTML", () => {
       expect(numbers.length).toBe(8);
 
       // Verify line numbers are sequential 1-8
-      for (let i = 1; i <= 8; i++) {
-        expect(html).toContain(`neo-hl-line-number">${i}</span>`);
-      }
+      const renderedNumbers = parseRenderedHTML(html).querySelectorAll(
+        ".neo-hl-line-number",
+      );
+      expect([...renderedNumbers].map((number) => number.textContent)).toEqual(
+        Array.from({ length: 8 }, (_, index) => String(index + 1)),
+      );
     });
 
     it("should handle Python multi-line strings correctly", () => {
@@ -253,6 +337,11 @@ describe("renderToHTML", () => {
       expect(html).not.toMatch(/<\/span>\s*\n\s*<span class="neo-hl-line">/);
     });
 
+    it("should make each generated line a block without external CSS", () => {
+      const html = renderToHTML(["line1\nline2"], { lineNumbers: true });
+      expect(html.match(/style="display: block"/g)).toHaveLength(2);
+    });
+
     it("reopened tags should preserve original classes", () => {
       const tokens: Token[] = [
         {
@@ -265,9 +354,11 @@ describe("renderToHTML", () => {
       const html = renderToHTML(tokens, { lineNumbers: true });
 
       // Line 2 content should have the string+alias span reopened
-      const afterLine2 = html.split('neo-hl-line-number">2</span>')[1] ?? '';
-      expect(afterLine2).toContain("neo-hl-string");
-      expect(afterLine2).toContain("neo-hl-template-string");
+      const line2 = parseRenderedHTML(html).querySelectorAll(".neo-hl-line")[1];
+      const reopened = line2?.querySelector(
+        ".neo-hl-string.neo-hl-template-string",
+      );
+      expect(reopened?.textContent).toBe('second"');
     });
   });
 });
