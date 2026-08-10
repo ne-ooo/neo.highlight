@@ -16,6 +16,8 @@ export interface AutoHighlightProps {
   autoDetect?: boolean;
   /** Maximum UTF-16 code units accepted by the tokenizer. */
   maxInputLength?: number;
+  /** Called when one code block cannot be highlighted. */
+  onError?: (error: unknown, element: Element) => void;
 }
 
 /**
@@ -40,6 +42,7 @@ export function AutoHighlight({
   style,
   autoDetect,
   maxInputLength,
+  onError,
 }: AutoHighlightProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ctx = useHighlightContext();
@@ -63,10 +66,12 @@ export function AutoHighlight({
       observe: true,
       autoDetect,
       maxInputLength,
+      force: true,
+      onError,
     });
 
     return cleanup;
-  }, [selector, languages, theme, lineNumbers, classPrefix, autoDetect, maxInputLength]);
+  }, [selector, languages, theme, lineNumbers, classPrefix, autoDetect, maxInputLength, onError]);
 
   return (
     <div ref={containerRef} className={className} style={style}>

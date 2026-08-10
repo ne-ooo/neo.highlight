@@ -136,6 +136,27 @@ describe("scan", () => {
     expect(code?.querySelector("pre")).toBeNull();
   });
 
+  it("should force-refresh existing markup without treating line numbers as source", () => {
+    const source = "const x = 1;\nlet y = 2;";
+    container.appendChild(createCodeBlock(source, "js"));
+    scan({ languages: [javascript], container, lineNumbers: true });
+
+    const count = scan({
+      languages: [javascript],
+      container,
+      force: true,
+      lineNumbers: false,
+      classPrefix: "custom-hl",
+    });
+    const code = container.querySelector("code");
+
+    expect(count).toBe(1);
+    expect(code?.textContent).toBe(source);
+    expect(code?.querySelector(".custom-hl-keyword")?.textContent).toBe("const");
+    expect(code?.querySelector(".custom-hl-line-number")).toBeNull();
+    expect(code?.classList.contains("neo-hl")).toBe(false);
+  });
+
   it("should not leak a stylesheet during a one-shot themed scan", () => {
     container.appendChild(createCodeBlock("const x = 42;", "js"));
     scan({ languages: [javascript], container, theme: githubDark });
@@ -143,6 +164,28 @@ describe("scan", () => {
     expect(document.getElementById("neo-hl-theme-github-dark")).toBeNull();
     expect(container.querySelector(".neo-hl-keyword")?.getAttribute("style"))
       .toContain(githubDark.tokenColors.keyword);
+    const code = container.querySelector("code") as HTMLElement;
+    expect(code.style.backgroundColor).not.toBe("");
+    expect(code.style.color).not.toBe("");
+  });
+
+  it("should isolate per-element input errors", () => {
+    container.appendChild(createCodeBlock("x".repeat(100), "js"));
+    container.appendChild(createCodeBlock("const ok = 1;", "js"));
+    const onError = vi.fn();
+
+    const count = scan({
+      languages: [javascript],
+      container,
+      maxInputLength: 20,
+      onError,
+    });
+
+    const blocks = container.querySelectorAll("code");
+    expect(count).toBe(1);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(blocks[0]?.hasAttribute("data-neo-highlighted")).toBe(false);
+    expect(blocks[1]?.querySelector(".neo-hl-keyword")?.textContent).toBe("const");
   });
 });
 

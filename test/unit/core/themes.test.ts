@@ -145,6 +145,41 @@ describe("getThemeCSS", () => {
     expect(() => getThemeCSS(malicious)).toThrow(/background/i);
   });
 
+  it.each([
+    'image-set(url("https://example.com/pixel.png") 1x)',
+    'image("https://example.com/pixel.png")',
+    "var(--page-controlled-color)",
+    "color-mix(in srgb, red, var(--page-color))",
+    "not-a-color",
+  ])("should reject non-literal color value %s", (background) => {
+    const malicious: Theme = {
+      name: "resource-loading-color",
+      background,
+      foreground: "#fff",
+      tokenColors: { keyword: "#fff" },
+    };
+
+    expect(() => getThemeCSS(malicious)).toThrow(/background/i);
+  });
+
+  it.each([
+    "rebeccapurple",
+    "#1234",
+    "#12345678",
+    "rgb(10 20 30 / 50%)",
+    "hsl(120deg, 50%, 25%)",
+    "oklch(60% 0.2 240 / 75%)",
+  ])("should accept literal color value %s", (background) => {
+    expect(() =>
+      getThemeCSS({
+        name: "literal-color",
+        background,
+        foreground: "#fff",
+        tokenColors: { keyword: "#fff" },
+      }),
+    ).not.toThrow();
+  });
+
   it("should reject injection in a dual-theme dark selector", () => {
     expect(() =>
       getDualThemeStylesheet(githubLight, githubDark, {

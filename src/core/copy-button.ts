@@ -6,6 +6,8 @@ const DEFAULT_CLASS_PREFIX = "neo-hl";
 const DEFAULT_LABEL = "Copy";
 const DEFAULT_COPIED_LABEL = "Copied!";
 const COPIED_DURATION = 2000;
+const VISUALLY_HIDDEN_STYLE =
+  "position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0";
 
 import {
   assertSafeCssIdentifier,
@@ -44,7 +46,7 @@ export function renderCopyButton(code: string, options: CopyButtonOptions = {}):
   const labelAttribute = escapeHTMLAttribute(label);
   const copiedLabelAttribute = escapeHTMLAttribute(copiedLabel);
 
-  return `<button class="${classPrefix}-copy-button" data-code="${escapedCode}" data-label="${labelAttribute}" data-copied-label="${copiedLabelAttribute}" type="button" aria-label="${labelAttribute}">${escapedLabel}</button>`;
+  return `<button class="${classPrefix}-copy-button" data-code="${escapedCode}" data-label="${labelAttribute}" data-copied-label="${copiedLabelAttribute}" type="button" aria-label="${labelAttribute}">${escapedLabel}</button><span class="${classPrefix}-copy-status" role="status" aria-live="polite" aria-atomic="true" style="${VISUALLY_HIDDEN_STYLE}"></span>`;
 }
 
 /**
@@ -105,6 +107,13 @@ export function initCopyButtons(
   const cleanups: Array<() => void> = [];
 
   for (const button of buttons) {
+    const nextElement = button.nextElementSibling;
+    const status =
+      nextElement instanceof HTMLElement &&
+      nextElement.classList.contains(`${classPrefix}-copy-status`)
+        ? nextElement
+        : null;
+    let resetTimer: ReturnType<typeof setTimeout> | undefined;
     const handler = () => {
       const code = button.getAttribute("data-code") ?? "";
       const label = button.getAttribute("data-label") ?? DEFAULT_LABEL;
@@ -114,17 +123,23 @@ export function initCopyButtons(
         if (success) {
           button.textContent = copiedLabel;
           button.classList.add(`${classPrefix}-copy-button-copied`);
+          if (status) status.textContent = copiedLabel;
 
-          setTimeout(() => {
+          if (resetTimer !== undefined) clearTimeout(resetTimer);
+          resetTimer = setTimeout(() => {
             button.textContent = label;
             button.classList.remove(`${classPrefix}-copy-button-copied`);
+            if (status) status.textContent = "";
           }, COPIED_DURATION);
         }
       });
     };
 
     button.addEventListener("click", handler);
-    cleanups.push(() => button.removeEventListener("click", handler));
+    cleanups.push(() => {
+      button.removeEventListener("click", handler);
+      if (resetTimer !== undefined) clearTimeout(resetTimer);
+    });
   }
 
   return () => {

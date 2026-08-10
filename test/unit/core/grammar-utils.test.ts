@@ -30,6 +30,17 @@ describe("resolveGrammar", () => {
     expect(resolveGrammar("PYTHON", grammars)).toBe(python);
   });
 
+  it("ignores surrounding whitespace in input, names, and aliases", () => {
+    const grammar = {
+      name: "  ExampleLang  ",
+      aliases: ["  EX  "],
+      tokens: {},
+    };
+
+    expect(resolveGrammar("  examplelang  ", [grammar])).toBe(grammar);
+    expect(resolveGrammar(" ex ", [grammar])).toBe(grammar);
+  });
+
   it("returns first match when multiple could match", () => {
     const result = resolveGrammar("javascript", grammars);
     expect(result).toBe(javascript);

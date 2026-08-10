@@ -17,4 +17,5 @@ PLAN
 .lpm/audit-cache.json
 .lpm/build-state.json
 .lpm/install-hash
+.lpm/overrides-state.json
 .lpm/trust-snapshot.json

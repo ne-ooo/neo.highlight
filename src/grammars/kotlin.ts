@@ -64,7 +64,7 @@ export const kotlin: Grammar = {
       /->|\.\.|\+\+|--|&&|\|\||::|\?\.|[!=]==?|<[=<]?|>[=>]?|[-+*/%&|^~!=]=?|\?:|[?!:]/,
     punctuation: /[{}[\]();,.:@]/,
     label: {
-      pattern: /\w+@/,
+      pattern: /\b\w+@/,
       alias: "variable",
     },
   },

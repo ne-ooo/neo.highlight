@@ -55,7 +55,8 @@ export const css: Grammar = {
     },
     important: /!important\b/i,
     function: {
-      pattern: /[\w-]+(?=\()/,
+      pattern: /(^|[^\w-])[\w-]+(?=\()/,
+      lookbehind: true,
       alias: "builtin",
     },
     number: {

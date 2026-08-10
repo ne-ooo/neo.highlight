@@ -1,5 +1,7 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useMemo } from "react";
 import type { Grammar, Theme } from "../core/types";
+
+const EMPTY_LANGUAGES: Grammar[] = [];
 
 interface HighlightContextValue {
   theme?: Theme | string | undefined;
@@ -9,7 +11,7 @@ interface HighlightContextValue {
 }
 
 const HighlightContext = createContext<HighlightContextValue>({
-  languages: [],
+  languages: EMPTY_LANGUAGES,
   classPrefix: "neo-hl",
   lineNumbers: false,
 });
@@ -25,14 +27,17 @@ export interface HighlightProviderProps {
 export function HighlightProvider({
   children,
   theme,
-  languages = [],
+  languages = EMPTY_LANGUAGES,
   classPrefix = "neo-hl",
   lineNumbers = false,
 }: HighlightProviderProps) {
+  const value = useMemo(
+    () => ({ theme, languages, classPrefix, lineNumbers }),
+    [theme, languages, classPrefix, lineNumbers],
+  );
+
   return (
-    <HighlightContext.Provider
-      value={{ theme, languages, classPrefix, lineNumbers }}
-    >
+    <HighlightContext.Provider value={value}>
       {children}
     </HighlightContext.Provider>
   );

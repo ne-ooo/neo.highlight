@@ -1,5 +1,6 @@
 import type { Grammar, Token, TokenizeOptions } from "../core/types";
 import { createRegistry, tokenize } from "../core/tokenizer";
+import { normalizeGrammarIdentifier } from "../core/grammar-utils";
 import * as grammarExports from "../grammars/index";
 
 export interface HighlightWorkerRequest {
@@ -54,7 +55,9 @@ export function handleHighlightWorkerRequest(
       throw new TypeError("Invalid highlight worker request");
     }
 
-    const grammar = grammarRegistry.get(request.language.toLowerCase());
+    const grammar = grammarRegistry.get(
+      normalizeGrammarIdentifier(request.language),
+    );
     if (!grammar) {
       throw new RangeError(`Unknown language "${request.language}"`);
     }

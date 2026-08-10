@@ -43,7 +43,7 @@ export const ruby: Grammar = {
       greedy: true,
     },
     symbol: {
-      pattern: /:\w+[!?]?|\w+[!?]?:/,
+      pattern: /:\w+[!?]?|\b\w+[!?]?:/,
       alias: "property",
     },
     "class-name": {

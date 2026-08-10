@@ -39,7 +39,7 @@ export const nix: Grammar = {
       alias: "string",
     },
     url: {
-      pattern: /[a-zA-Z][\w+\-.]*:\/\/[^\s)]+/,
+      pattern: /\b[a-zA-Z][\w+\-.]*:\/\/[^\s)]+/,
       alias: "string",
     },
     keyword:

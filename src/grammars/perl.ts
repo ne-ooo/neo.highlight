@@ -25,7 +25,7 @@ export const perl: Grammar = {
     ],
     regex: {
       pattern:
-        /(?:m|qr)?\s*([\/|{}[\]()!])(?:\\[\s\S]|(?!\1)[^\\])*\1[msixpodualngcer]*/,
+        /(?:\b(?:m|qr)\s*)?([\/|{}[\]()!])(?:\\[\s\S]|(?!\1)[^\\])*\1[msixpodualngcer]*/,
       greedy: true,
       alias: "string",
     },

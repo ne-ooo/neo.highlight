@@ -36,7 +36,7 @@ export const vue: Grammar = {
       },
     },
     interpolation: {
-      pattern: /\{\{[^}]*\}\}/,
+      pattern: /\{\{(?:[^{]|\{(?!\{))*\}\}/,
       inside: {
         punctuation: /^\{\{|\}\}$/,
       },
