@@ -10,7 +10,14 @@ import { bash } from "../../../src/grammars/bash";
 import { rust } from "../../../src/grammars/rust";
 import { go } from "../../../src/grammars/go";
 import { sql } from "../../../src/grammars/sql";
+import * as bundledGrammarExports from "../../../src/grammars";
 import type { Grammar, Token } from "../../../src/core/types";
+import { DETECTION_SNIPPETS } from "../../fixtures/detection-snippets";
+import {
+  HTML_MEDIUM,
+  JS_MEDIUM,
+  PYTHON_MEDIUM,
+} from "../../benchmarks/fixtures";
 
 const allGrammars = [javascript, python, html, css, json, bash, rust, go, sql];
 
@@ -64,6 +71,44 @@ describe("scoreTokenization", () => {
 });
 
 describe("detectLanguage", () => {
+  it("keeps a complete 55-language confusion matrix on the diagonal", () => {
+    const bundledGrammars = Object.values(bundledGrammarExports) as Grammar[];
+    const failures: string[] = [];
+
+    expect(bundledGrammars).toHaveLength(55);
+    expect(Object.keys(DETECTION_SNIPPETS)).toHaveLength(55);
+
+    for (const expected of bundledGrammars) {
+      const code = DETECTION_SNIPPETS[expected.name];
+      expect(code, `Missing detection fixture for ${expected.name}`).toBeDefined();
+      if (!code) continue;
+
+      const result = detectLanguage(code, bundledGrammars, { noCache: true });
+      expect(result?.candidates).toHaveLength(55);
+      if (result?.grammar.name !== expected.name) {
+        const ranking = result?.candidates
+          .slice(0, 3)
+          .map(({ grammar, score }) => `${grammar.name}=${score.toFixed(3)}`)
+          .join(", ");
+        failures.push(
+          `${expected.name} detected as ${result?.grammar.name ?? "unknown"} (${ranking ?? "no candidates"})`,
+        );
+      }
+    }
+
+    expect(failures).toEqual([]);
+  });
+
+  it.each([
+    ["javascript", JS_MEDIUM],
+    ["python", PYTHON_MEDIUM],
+    ["html", HTML_MEDIUM],
+  ])("detects the %s benchmark fixture across all grammars", (name, code) => {
+    const bundledGrammars = Object.values(bundledGrammarExports) as Grammar[];
+    expect(detectLanguage(code, bundledGrammars, { noCache: true })?.grammar.name)
+      .toBe(name);
+  });
+
   it("returns undefined for empty code", () => {
     expect(detectLanguage("", allGrammars)).toBeUndefined();
   });

@@ -69,6 +69,15 @@ describe("renderCopyButton", () => {
     const html = renderCopyButton("code");
     expect(html).toContain('aria-label="Copy"');
   });
+
+  it("renders a polite status region for copy feedback", () => {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = renderCopyButton("code");
+    const status = wrapper.querySelector('[role="status"]');
+
+    expect(status?.getAttribute("aria-live")).toBe("polite");
+    expect(status?.getAttribute("aria-atomic")).toBe("true");
+  });
 });
 
 describe("initCopyButtons", () => {
@@ -108,6 +117,9 @@ describe("initCopyButtons", () => {
     // Wait for async clipboard operation
     await vi.waitFor(() => {
       expect(button.textContent).toBe("Copied!");
+      expect(container.querySelector('[role="status"]')?.textContent).toBe(
+        "Copied!",
+      );
     });
 
     expect(writeTextMock).toHaveBeenCalledWith("const x = 42;");

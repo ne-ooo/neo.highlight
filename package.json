@@ -135,11 +135,12 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
     "test:package": "node test/package-smoke.mjs",
+    "test:regex-safety": "node test/regex-safety.mjs",
     "bench": "vitest bench --run test/benchmarks",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "security:audit": "lpm audit --level high --fail-on vuln",
-    "release:check": "lpm run clean && lpm run security:audit && lpm run type-check && lpm run test:coverage && lpm run build && lpm run test:package",
+    "security:audit": "lpm audit --level low --fail-on vuln",
+    "release:check": "lpm run clean && lpm run security:audit && lpm run type-check && lpm run test:coverage && lpm run build && lpm run test:regex-safety && lpm run test:package",
     "prepublishOnly": "lpm run release:check"
   },
   "peerDependencies": {
@@ -166,5 +167,10 @@
     "typescript": "^5.3.3",
     "vite": "^6.4.3",
     "vitest": "^3.2.6"
+  },
+  "lpm": {
+    "overrides": {
+      "tsup>esbuild": "0.28.2"
+    }
   }
 }

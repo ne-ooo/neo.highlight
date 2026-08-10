@@ -60,8 +60,12 @@ export function Highlight({
   const lineNumbers = showLineNumbers ?? ctx.lineNumbers;
   const classPrefix = classPrefixProp ?? ctx.classPrefix;
 
+  const tokens = useMemo(
+    () => tokenize(children, language, { maxInputLength }),
+    [children, language, maxInputLength],
+  );
+
   const html = useMemo(() => {
-    const tokens = tokenize(children, language, { maxInputLength });
     return renderToHTML(tokens, {
       theme,
       lineNumbers,
@@ -71,7 +75,7 @@ export function Highlight({
       classPrefix,
       wrapCode: true,
     });
-  }, [children, language, theme, lineNumbers, highlightLines, diffHighlight, classPrefix, maxInputLength]);
+  }, [tokens, language, theme, lineNumbers, highlightLines, diffHighlight, classPrefix]);
 
   if (copyButton) {
     return (

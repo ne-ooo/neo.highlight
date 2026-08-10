@@ -91,11 +91,11 @@ export function renderToHTML(tokens: Token[], options: RenderOptions = {}): stri
         // Diff gutter marker
         let gutterSpan = "";
         if (diffAdded?.has(lineNum)) {
-          gutterSpan = `<span class="${classPrefix}-diff-gutter" style="display: inline-block; width: 1.5em; text-align: center; user-select: none">+</span>`;
+          gutterSpan = `<span class="${classPrefix}-diff-gutter" aria-hidden="true" style="display: inline-block; width: 1.5em; text-align: center; user-select: none">+</span>`;
         } else if (diffRemoved?.has(lineNum)) {
-          gutterSpan = `<span class="${classPrefix}-diff-gutter" style="display: inline-block; width: 1.5em; text-align: center; user-select: none">-</span>`;
+          gutterSpan = `<span class="${classPrefix}-diff-gutter" aria-hidden="true" style="display: inline-block; width: 1.5em; text-align: center; user-select: none">-</span>`;
         } else if (diffModified?.has(lineNum)) {
-          gutterSpan = `<span class="${classPrefix}-diff-gutter" style="display: inline-block; width: 1.5em; text-align: center; user-select: none">~</span>`;
+          gutterSpan = `<span class="${classPrefix}-diff-gutter" aria-hidden="true" style="display: inline-block; width: 1.5em; text-align: center; user-select: none">~</span>`;
         }
 
         const numberStyle = getLineNumberStyle(
@@ -104,7 +104,7 @@ export function renderToHTML(tokens: Token[], options: RenderOptions = {}): stri
           isHighlighted,
         );
         const numberSpan = lineNumbers
-          ? `<span class="${classPrefix}-line-number" style="${escapeHTMLAttribute(numberStyle)}">${lineNum}</span>`
+          ? `<span class="${classPrefix}-line-number" aria-hidden="true" style="${escapeHTMLAttribute(numberStyle)}">${lineNum}</span>`
           : "";
 
         return `<span class="${lineClasses.join(" ")}" style="${escapeHTMLAttribute(lineStyles.join("; "))}">${gutterSpan}${numberSpan}<span class="${classPrefix}-line-content">${line}</span></span>`;
@@ -306,7 +306,7 @@ function splitHTMLIntoLines(html: string): string[] {
 
   let i = 0;
   while (i < html.length) {
-    if (html[i] === "\n") {
+    if (html[i] === "\n" || html[i] === "\r") {
       // Close all open tags for this line
       for (let t = openTags.length - 1; t >= 0; t--) {
         currentLine += "</span>";
@@ -317,7 +317,9 @@ function splitHTMLIntoLines(html: string): string[] {
       for (const tag of openTags) {
         currentLine += tag;
       }
-      i++;
+      // Treat CRLF as one boundary and a bare CR as a newline. The rendered
+      // line content is normalized without disturbing the open-token stack.
+      i += html[i] === "\r" && html[i + 1] === "\n" ? 2 : 1;
     } else if (html[i] === "<") {
       // Find the end of the tag
       const closeIdx = html.indexOf(">", i);

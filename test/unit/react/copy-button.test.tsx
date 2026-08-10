@@ -44,7 +44,9 @@ describe("CopyButton (React)", () => {
 
     await waitFor(() => {
       expect(button.textContent).toBe("Done!");
+      expect(screen.getByRole("status").textContent).toBe("Done!");
     });
+    expect(button.getAttribute("aria-label")).toBe("Copy");
   });
 
   it("calls onCopy callback after successful copy", async () => {

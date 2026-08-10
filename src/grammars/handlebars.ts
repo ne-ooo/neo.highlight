@@ -11,7 +11,7 @@ export const handlebars: Grammar = {
       alias: "comment",
     },
     "raw-block": {
-      pattern: /\{\{\{\{[\s\S]*?\}\}\}\}/,
+      pattern: /\{\{\{\{(?:(?!\{\{\{\{|\}\}\}\})[\s\S])*\}\}\}\}/,
       greedy: true,
       inside: {
         punctuation: /^\{\{\{\{|\}\}\}\}$/,
@@ -33,7 +33,7 @@ export const handlebars: Grammar = {
       },
     },
     expression: {
-      pattern: /\{\{[{]?[\s\S]*?[}]?\}\}/,
+      pattern: /\{\{\{?[^{}]*\}?\}\}/,
       greedy: true,
       inside: {
         punctuation: /^\{\{\{?|\}?\}\}$/,

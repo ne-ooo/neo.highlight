@@ -184,6 +184,10 @@ export interface ScanOptions {
   autoDetect?: boolean | undefined;
   /** Maximum UTF-16 code units accepted by the tokenizer. */
   maxInputLength?: number | undefined;
+  /** Re-highlight matching elements even if they were highlighted before. */
+  force?: boolean | undefined;
+  /** Called when one element cannot be highlighted; remaining elements continue. */
+  onError?: ((error: unknown, element: Element) => void) | undefined;
 }
 
 /**

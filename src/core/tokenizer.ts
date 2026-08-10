@@ -3,7 +3,7 @@
  *
  * Key differences from Prism.js:
  * - No global state or mutation
- * - Immutable grammar objects
+ * - Does not mutate grammar objects
  * - Pure function: tokenize(code, grammar) → Token[]
  * - TypeScript-first with full type safety
  * -----------------------------------------------------------------------------------------------*/
@@ -17,14 +17,11 @@ import type {
   TokenPattern,
   TokenizeOptions,
 } from "./types";
+import { normalizeGrammarIdentifier } from "./grammar-utils";
 
 export const DEFAULT_MAX_INPUT_LENGTH = 1_000_000;
 
 const globalPatternCache = new WeakMap<RegExp, RegExp>();
-const compiledGrammarCache = new WeakMap<
-  GrammarTokens,
-  Array<{ tokenType: string; patterns: TokenPattern[] }>
->();
 
 /**
  * Tokenize source code using a grammar definition.
@@ -74,9 +71,6 @@ function normalizeDefinition(definition: TokenDefinition): TokenPattern[] {
 function compileGrammarTokens(
   grammarTokens: GrammarTokens,
 ): Array<{ tokenType: string; patterns: TokenPattern[] }> {
-  const cached = compiledGrammarCache.get(grammarTokens);
-  if (cached) return cached;
-
   const compiled: Array<{ tokenType: string; patterns: TokenPattern[] }> = [];
   for (const tokenType of Object.keys(grammarTokens)) {
     const definition = grammarTokens[tokenType];
@@ -84,7 +78,6 @@ function compileGrammarTokens(
       compiled.push({ tokenType, patterns: normalizeDefinition(definition) });
     }
   }
-  compiledGrammarCache.set(grammarTokens, compiled);
   return compiled;
 }
 
@@ -155,7 +148,14 @@ function applyPattern(
   for (let match = regex.exec(source); match; match = regex.exec(source)) {
     const fullText = match[0];
     if (fullText.length === 0) {
-      regex.lastIndex += 1;
+      // RegExp execution in Unicode mode can move a lastIndex that points into
+      // a surrogate pair back to the start of that code point. Advancing from
+      // match.index with the same semantics as ECMAScript's AdvanceStringIndex
+      // guarantees forward progress for zero-width custom grammar patterns.
+      const fullUnicode =
+        regex.unicode ||
+        (regex as RegExp & { readonly unicodeSets?: boolean }).unicodeSets === true;
+      regex.lastIndex = advanceStringIndex(source, match.index, fullUnicode);
       continue;
     }
 
@@ -252,6 +252,20 @@ function applyPattern(
   for (const token of output) tokens.push(token);
 }
 
+function advanceStringIndex(
+  source: string,
+  index: number,
+  unicode: boolean,
+): number {
+  if (!unicode || index + 1 >= source.length) return index + 1;
+
+  const first = source.charCodeAt(index);
+  if (first < 0xd800 || first > 0xdbff) return index + 1;
+
+  const second = source.charCodeAt(index + 1);
+  return second >= 0xdc00 && second <= 0xdfff ? index + 2 : index + 1;
+}
+
 function emitOriginalRange(
   spans: TokenSpan[],
   from: number,
@@ -323,10 +337,10 @@ export function getPlainText(tokens: Token[]): string {
 export function createRegistry(grammars: Grammar[]): Map<string, Grammar> {
   const registry = new Map<string, Grammar>();
   for (const grammar of grammars) {
-    registry.set(grammar.name, grammar);
+    registry.set(normalizeGrammarIdentifier(grammar.name), grammar);
     if (grammar.aliases) {
       for (const alias of grammar.aliases) {
-        registry.set(alias, grammar);
+        registry.set(normalizeGrammarIdentifier(alias), grammar);
       }
     }
   }

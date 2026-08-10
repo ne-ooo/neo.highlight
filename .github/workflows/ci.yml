@@ -62,6 +62,9 @@ jobs:
       - name: Build the package
         run: lpm run build
 
+      - name: Check adversarial regular-expression performance
+        run: lpm run test:regex-safety
+
       - name: Test the built ESM and CommonJS packages
         run: lpm run test:package
 

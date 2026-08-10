@@ -77,6 +77,24 @@ describe("tokenize", () => {
     expect(flattenTokens(result)).toContainEqual({ type: "keyword", content: "else" });
   });
 
+  it("uses grammar token changes made after an earlier tokenization", () => {
+    const grammar: Grammar = {
+      name: "mutable",
+      tokens: { original: /foo/ },
+    };
+    expect(flattenTokens(tokenize("foo bar", grammar))).toContainEqual({
+      type: "original",
+      content: "foo",
+    });
+
+    grammar.tokens.original = /bar/;
+    grammar.tokens.added = /foo/;
+    const updated = flattenTokens(tokenize("foo bar", grammar));
+
+    expect(updated).toContainEqual({ type: "added", content: "foo" });
+    expect(updated).toContainEqual({ type: "original", content: "bar" });
+  });
+
   it("should preserve plain text between tokens", () => {
     const grammar: Grammar = {
       name: "test",
@@ -209,6 +227,30 @@ describe("tokenize", () => {
   it("should handle empty input", () => {
     const result = tokenize("", javascript);
     expect(result).toEqual([""]);
+  });
+
+  it("should advance past zero-width Unicode matches without hanging", () => {
+    const grammar: Grammar = {
+      name: "zero-width-unicode",
+      tokens: { empty: /(?:)/u },
+    };
+
+    expect(tokenize("😀", grammar)).toEqual(["😀"]);
+  });
+
+  it("should advance past zero-width Unicode Sets matches when supported", () => {
+    let pattern: RegExp;
+    try {
+      pattern = new RegExp("(?:)", "v");
+    } catch {
+      return;
+    }
+    const grammar: Grammar = {
+      name: "zero-width-unicode-sets",
+      tokens: { empty: pattern },
+    };
+
+    expect(tokenize("😀", grammar)).toEqual(["😀"]);
   });
 
   it("should handle input with no matches", () => {
@@ -565,5 +607,18 @@ describe("createRegistry", () => {
   it("should handle empty array", () => {
     const registry = createRegistry([]);
     expect(registry.size).toBe(0);
+  });
+
+  it("normalizes names and aliases", () => {
+    const grammar: Grammar = {
+      name: "  ExampleLang  ",
+      aliases: ["  EX  "],
+      tokens: {},
+    };
+    const registry = createRegistry([grammar]);
+
+    expect(registry.get("examplelang")).toBe(grammar);
+    expect(registry.get("ex")).toBe(grammar);
+    expect(registry.has("  ExampleLang  ")).toBe(false);
   });
 });

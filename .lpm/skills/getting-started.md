@@ -340,7 +340,7 @@ resolveGrammar("ts", grammars); // → typescript grammar
 resolveGrammar("unknown", grammars); // → null
 ```
 
-Case-insensitive. Checks grammar `name` and `aliases`. Returns the `Grammar` object or `null`.
+Checks grammar `name` and `aliases`. The lookup ignores case and surrounding whitespace. It returns the `Grammar` object or `null`.
 
 ## Themes (10 Built-in, WCAG AA Compliant)
 
@@ -488,7 +488,9 @@ if (result) {
 }
 ```
 
-Scores by keyword density (35%), coverage (30%), diversity (20%), high-value tokens (15%). LRU cached (100 entries). Prefer explicit `class="language-*"` attributes — auto-detect is a fallback.
+The base score uses keyword density (35%), coverage (30%), diversity (20%), and high-value tokens (15%). Language profiles add positive and negative syntax evidence. A derived grammar must have syntax that identifies it before it can outrank its base grammar.
+
+The LRU cache has 100 entries. Its key uses the complete analyzed sample and grammar identities. Prefer explicit `class="language-*"` attributes. Use auto-detection only as a fallback.
 
 ## Tree-Shaking
 

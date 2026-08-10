@@ -142,6 +142,12 @@ import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
 
 Language is detected from class names (`language-js`, `lang-python`) or the `data-language` attribute on the `<code>` or `<pre>` element.
 
+Set `autoDetect` to `true` when an element has no language hint. The detector uses token coverage and language-specific syntax.
+
+Derived grammars need a unique marker before they can outrank their base grammar. For example, Astro needs frontmatter, and Vue needs framework directives.
+
+This rule keeps plain HTML assigned to HTML. TypeScript, TSX, JSX, Svelte, Handlebars, SCSS, Less, and Bash use equivalent markers.
+
 **Props:**
 
 | Prop          | Type              | Default      | Description                           |
@@ -154,7 +160,9 @@ Language is detected from class names (`language-js`, `lang-python`) or the `dat
 | `classPrefix` | `string`          | `"neo-hl"`   | CSS class prefix                      |
 | `className`   | `string`          | --           | Additional CSS class for the wrapper  |
 | `style`       | `CSSProperties`   | --           | Inline styles for the wrapper         |
+| `autoDetect`  | `boolean`         | `false`      | Detect blocks without a language hint |
 | `maxInputLength` | `number`       | `1000000`    | Maximum tokenizer input length        |
+| `onError`     | `(error, element) => void` | -- | Receive errors for individual blocks |
 
 ### `<HighlightProvider>`
 
@@ -325,10 +333,16 @@ const count = scan({
   languages: [javascript],
   selector: "pre code",
   container: document.getElementById("article"),
+  force: true, // Refresh blocks that are already highlighted
+  onError: (error, element) => console.error(element, error),
 });
 
 console.log(`Highlighted ${count} code blocks`);
 ```
+
+A one-shot scan applies the theme foreground and background directly to each code element. It does not add a style element.
+
+An error in one block does not stop the scan. Use `onError` to receive that error.
 
 ### `observe(options)`
 
@@ -409,7 +423,7 @@ const grammars = [javascript, python, typescript];
 resolveGrammar("js", grammars);         // → javascript grammar
 resolveGrammar("python", grammars);     // → python grammar
 resolveGrammar("typescript", grammars); // → typescript grammar
-resolveGrammar("unknown", grammars);    // → undefined
+resolveGrammar("unknown", grammars);    // → null
 ```
 
 **Parameters:**
@@ -419,7 +433,9 @@ resolveGrammar("unknown", grammars);    // → undefined
 | `language` | `string`    | Language name or alias         |
 | `grammars` | `Grammar[]` | Array of grammars to search in |
 
-**Returns:** `Grammar | undefined`
+The lookup ignores case and surrounding whitespace in names and aliases.
+
+**Returns:** `Grammar | null`
 
 ### `validateThemeContrast(theme)`
 
@@ -430,11 +446,13 @@ import { validateThemeContrast } from "@lpm.dev/neo.highlight";
 import { nord } from "@lpm.dev/neo.highlight/themes/nord";
 
 const report = validateThemeContrast(nord);
-// report.passes — boolean, true if all tokens pass
-// report.tokens — array of { name, foreground, background, ratio, passes }
+// report.passed — true if all results pass
+// report.theme — theme name
+// report.results — array of
+// { token, color, background, ratio, required, pass }
 ```
 
-**Returns:** `{ passes: boolean, theme: string, tokens: TokenContrastReport[] }`
+**Returns:** `ThemeContrastReport`
 
 ### `contrastRatio(color1, color2)`
 
@@ -622,17 +640,17 @@ import { dracula } from "@lpm.dev/neo.highlight/themes/dracula";
 
 const report = validateThemeContrast(dracula);
 
-console.log(report.passes); // true — all tokens meet 4.5:1 ratio
-console.log(report.theme);  // "dracula"
+console.log(report.passed); // true — all colors meet the ratio
+console.log(report.theme); // "dracula"
 
-for (const token of report.tokens) {
+for (const result of report.results) {
   console.log(
-    `${token.name}: ${token.ratio.toFixed(1)}:1 — ${token.passes ? "PASS" : "FAIL"}`,
+    `${result.token}: ${result.ratio.toFixed(1)}:1 — ${result.pass ? "PASS" : "FAIL"}`,
   );
 }
 ```
 
-The report includes each token's foreground color, background color, computed contrast ratio, and whether it passes the 4.5:1 threshold.
+Each result includes a token name, color, background, ratio, required ratio, and pass status. The `foreground` result checks the theme's base text color.
 
 ---
 

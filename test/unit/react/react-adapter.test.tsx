@@ -3,10 +3,14 @@ import React from "react";
 import { render, cleanup } from "@testing-library/react";
 import { Highlight } from "../../../src/react/highlight";
 import { AutoHighlight } from "../../../src/react/auto-highlight";
-import { HighlightProvider } from "../../../src/react/context";
+import {
+  HighlightProvider,
+  useHighlightContext,
+} from "../../../src/react/context";
 import { javascript } from "../../../src/grammars/javascript";
 import { python } from "../../../src/grammars/python";
 import { githubDark } from "../../../src/themes/github-dark";
+import { githubLight } from "../../../src/themes/github-light";
 
 describe("Highlight component", () => {
   afterEach(() => cleanup());
@@ -118,6 +122,29 @@ describe("HighlightProvider", () => {
     );
     expect(container.innerHTML).not.toContain("neo-hl-line-number");
   });
+
+  it("does not redraw memoized consumers when default values stay unchanged", () => {
+    let renderCount = 0;
+    const Consumer = React.memo(function Consumer() {
+      useHighlightContext();
+      renderCount++;
+      return <span>consumer</span>;
+    });
+
+    const { rerender } = render(
+      <HighlightProvider>
+        <Consumer />
+      </HighlightProvider>,
+    );
+    expect(renderCount).toBe(1);
+
+    rerender(
+      <HighlightProvider>
+        <Consumer />
+      </HighlightProvider>,
+    );
+    expect(renderCount).toBe(1);
+  });
 });
 
 describe("AutoHighlight component", () => {
@@ -157,5 +184,60 @@ describe("AutoHighlight component", () => {
     );
     const code = container.querySelector("code");
     expect(code?.innerHTML).toContain("neo-hl-keyword");
+  });
+
+  it("should refresh existing blocks when rendering props and grammars change", () => {
+    const source = "const x = 42;\nlet y = 10;";
+    const replacement = {
+      name: "javascript",
+      aliases: ["js"],
+      tokens: { marker: /\bx\b/ },
+    };
+    const { container, rerender } = render(
+      <AutoHighlight languages={[javascript]} theme={githubDark}>
+        <pre><code className="language-js">{source}</code></pre>
+      </AutoHighlight>,
+    );
+
+    const code = container.querySelector("code") as HTMLElement;
+    expect(code.querySelector(".neo-hl-keyword")?.textContent).toBe("const");
+    const initialColor = code.style.color;
+
+    rerender(
+      <AutoHighlight
+        languages={[replacement]}
+        theme={githubLight}
+        lineNumbers
+        classPrefix="refreshed-hl"
+      >
+        <pre><code className="language-js">{source}</code></pre>
+      </AutoHighlight>,
+    );
+
+    expect(code.textContent).toContain(source.split("\n")[0]);
+    expect(code.querySelector(".refreshed-hl-marker")?.textContent).toBe("x");
+    expect(code.querySelectorAll(".refreshed-hl-line-number")).toHaveLength(2);
+    expect(code.classList.contains("neo-hl")).toBe(false);
+    expect(code.style.color).not.toBe("");
+    expect(code.style.color).not.toBe(initialColor);
+  });
+
+  it("should refresh when automatic detection is enabled", () => {
+    const source = "const greet = (name) => console.log(name);";
+    const { container, rerender } = render(
+      <AutoHighlight languages={[javascript]} autoDetect={false}>
+        <pre><code>{source}</code></pre>
+      </AutoHighlight>,
+    );
+    const code = container.querySelector("code")!;
+    expect(code.hasAttribute("data-neo-highlighted")).toBe(false);
+
+    rerender(
+      <AutoHighlight languages={[javascript]} autoDetect>
+        <pre><code>{source}</code></pre>
+      </AutoHighlight>,
+    );
+
+    expect(code.querySelector(".neo-hl-keyword")?.textContent).toBe("const");
   });
 });

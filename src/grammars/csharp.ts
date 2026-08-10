@@ -96,7 +96,7 @@ export const csharp: Grammar = {
       lookbehind: true,
     },
     "generic-type": {
-      pattern: /\w+<(?:[^<>]|<[^<>]*>)*>/,
+      pattern: /\b\w+<(?:[^<>]|<[^<>]*>)*>/,
       inside: {
         "class-name": /^\w+/,
         punctuation: /[<>,]/,

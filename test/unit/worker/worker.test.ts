@@ -16,6 +16,16 @@ describe("highlight worker", () => {
     }
   });
 
+  it("normalizes case and surrounding whitespace in language names", () => {
+    const response = handleHighlightWorkerRequest({
+      id: "normalized",
+      code: "const x = 42;",
+      language: "  JavaScript  ",
+    });
+
+    expect(response.ok).toBe(true);
+  });
+
   it("returns a serializable error for an unknown language", () => {
     const response = handleHighlightWorkerRequest({
       id: "unknown",

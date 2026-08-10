@@ -13,6 +13,14 @@ function parseRenderedHTML(html: string): HTMLDivElement {
   return container;
 }
 
+function getAssistiveText(node: Node): string {
+  if (node instanceof HTMLElement && node.getAttribute("aria-hidden") === "true") {
+    return "";
+  }
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
+  return [...node.childNodes].map(getAssistiveText).join("");
+}
+
 describe("renderToHTML", () => {
   it("should render plain text tokens", () => {
     const tokens: Token[] = ["hello world"];
@@ -168,6 +176,39 @@ describe("renderToHTML", () => {
     ]);
   });
 
+  it("hides decorative line numbers and diff gutters from assistive text", () => {
+    const html = renderToHTML(["alpha\nbeta"], {
+      lineNumbers: true,
+      diffHighlight: { added: [1], modified: [2] },
+    });
+    const container = parseRenderedHTML(html);
+    const decorations = container.querySelectorAll(
+      ".neo-hl-line-number, .neo-hl-diff-gutter",
+    );
+    const lines = container.querySelectorAll(".neo-hl-line");
+
+    expect(decorations).toHaveLength(4);
+    expect([...decorations].every((item) => item.getAttribute("aria-hidden") === "true"))
+      .toBe(true);
+    expect([...lines].map(getAssistiveText)).toEqual(["alpha", "beta"]);
+  });
+
+  it("should treat CRLF and bare CR as line boundaries", () => {
+    const html = renderToHTML(["windows\r\nclassic\rmac"], {
+      lineNumbers: true,
+    });
+    const lines = parseRenderedHTML(html).querySelectorAll(
+      ".neo-hl-line-content",
+    );
+
+    expect([...lines].map((line) => line.textContent)).toEqual([
+      "windows",
+      "classic",
+      "mac",
+    ]);
+    expect(html).not.toContain("\r");
+  });
+
   it("should use the active line-number color on highlighted lines", () => {
     const html = renderToHTML(["line1\nline2"], {
       theme: githubDark,
@@ -246,6 +287,29 @@ describe("renderToHTML", () => {
       expect(lines[1]?.querySelector(".neo-hl-selector")?.textContent).toBe(
         "second",
       );
+    });
+
+    it("should preserve nested token spans across CRLF and bare CR", () => {
+      const tokens: Token[] = [
+        {
+          type: "comment",
+          content: [
+            "first\r\n",
+            { type: "important", content: "second\rthird", length: 12 },
+          ],
+          length: 19,
+        },
+      ];
+      const html = renderToHTML(tokens, { lineNumbers: true });
+      const lines = parseRenderedHTML(html).querySelectorAll(".neo-hl-line");
+
+      expect(lines).toHaveLength(3);
+      expect([...lines].map((line) => line.textContent?.replace(/^\d/, "")))
+        .toEqual(["first", "second", "third"]);
+      expect(lines[1]?.querySelector(".neo-hl-comment .neo-hl-important"))
+        .not.toBeNull();
+      expect(lines[2]?.querySelector(".neo-hl-comment .neo-hl-important"))
+        .not.toBeNull();
     });
 
     it("each line should contain exactly one line-number", () => {

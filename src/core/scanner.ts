@@ -11,10 +11,22 @@ import { tokenize, createRegistry } from "./tokenizer";
 import { renderToHTML } from "./renderer";
 import { applyTheme, resolveThemeOrThrow } from "./themes";
 import { detectLanguage as detectLanguageAuto } from "./detect";
+import { normalizeGrammarIdentifier } from "./grammar-utils";
 
 const HIGHLIGHTED_ATTR = "data-neo-highlighted";
 const DEFAULT_SELECTOR = "pre code";
 const DEFAULT_CLASS_PREFIX = "neo-hl";
+
+interface ElementHighlightState {
+  source: string;
+  classPrefix: string;
+  originalBackgroundColor: string;
+  originalBackgroundPriority: string;
+  originalColor: string;
+  originalColorPriority: string;
+}
+
+const highlightedElements = new WeakMap<Element, ElementHighlightState>();
 
 /**
  * Detect language from a code element's class or data attribute.
@@ -55,6 +67,7 @@ function highlightElement(
   },
   force = false,
   internallyMutated?: WeakSet<Element>,
+  reuseStoredSource = false,
 ): boolean {
   if (!force && element.hasAttribute(HIGHLIGHTED_ATTR)) return false;
   if (
@@ -64,7 +77,12 @@ function highlightElement(
     return false;
   }
 
-  const code = getElementCode(element, options.classPrefix ?? DEFAULT_CLASS_PREFIX);
+  const classPrefix = options.classPrefix ?? DEFAULT_CLASS_PREFIX;
+  const previousState = highlightedElements.get(element);
+  const code =
+    reuseStoredSource && previousState
+      ? previousState.source
+      : getElementCode(element, previousState?.classPrefix ?? classPrefix);
   if (code.length === 0) return false;
 
   // Try language hint from class/data attributes first
@@ -72,7 +90,7 @@ function highlightElement(
   let grammar: Grammar | undefined;
 
   if (lang) {
-    grammar = registry.get(lang);
+    grammar = registry.get(normalizeGrammarIdentifier(lang));
   }
 
   // Fall back to auto-detection if enabled and no hint found
@@ -99,9 +117,108 @@ function highlightElement(
   internallyMutated?.add(element);
   element.innerHTML = html;
   element.setAttribute(HIGHLIGHTED_ATTR, "true");
-  element.classList.add(options.classPrefix ?? DEFAULT_CLASS_PREFIX);
+  if (previousState && previousState.classPrefix !== classPrefix) {
+    element.classList.remove(previousState.classPrefix);
+  }
+  element.classList.add(classPrefix);
+
+  const state =
+    previousState ??
+    captureElementHighlightState(element, code, classPrefix);
+  state.source = code;
+  state.classPrefix = classPrefix;
+  highlightedElements.set(element, state);
+  applyElementTheme(element, options.theme, state);
 
   return true;
+}
+
+function captureElementHighlightState(
+  element: Element,
+  source: string,
+  classPrefix: string,
+): ElementHighlightState {
+  const style = element instanceof HTMLElement ? element.style : undefined;
+  return {
+    source,
+    classPrefix,
+    originalBackgroundColor: style?.getPropertyValue("background-color") ?? "",
+    originalBackgroundPriority: style?.getPropertyPriority("background-color") ?? "",
+    originalColor: style?.getPropertyValue("color") ?? "",
+    originalColorPriority: style?.getPropertyPriority("color") ?? "",
+  };
+}
+
+function applyElementTheme(
+  element: Element,
+  theme: Theme | undefined,
+  state: ElementHighlightState,
+): void {
+  if (!(element instanceof HTMLElement)) return;
+
+  if (theme) {
+    element.style.setProperty("background-color", theme.background);
+    element.style.setProperty("color", theme.foreground);
+    return;
+  }
+
+  restoreStyleProperty(
+    element,
+    "background-color",
+    state.originalBackgroundColor,
+    state.originalBackgroundPriority,
+  );
+  restoreStyleProperty(
+    element,
+    "color",
+    state.originalColor,
+    state.originalColorPriority,
+  );
+}
+
+function restoreStyleProperty(
+  element: HTMLElement,
+  property: string,
+  value: string,
+  priority: string,
+): void {
+  if (value) {
+    element.style.setProperty(property, value, priority);
+  } else {
+    element.style.removeProperty(property);
+  }
+}
+
+function tryHighlightElement(
+  element: Element,
+  registry: Map<string, Grammar>,
+  allLanguages: Grammar[],
+  options: Parameters<typeof highlightElement>[3],
+  control: {
+    force?: boolean;
+    internallyMutated?: WeakSet<Element>;
+    reuseStoredSource?: boolean;
+    onError?: ScanOptions["onError"];
+  } = {},
+): boolean {
+  try {
+    return highlightElement(
+      element,
+      registry,
+      allLanguages,
+      options,
+      control.force,
+      control.internallyMutated,
+      control.reuseStoredSource,
+    );
+  } catch (error) {
+    try {
+      control.onError?.(error, element);
+    } catch {
+      // An error reporter must not prevent the remaining elements from running.
+    }
+    return false;
+  }
 }
 
 function getElementCode(element: Element, classPrefix: string): string {
@@ -132,6 +249,8 @@ export function scan(options: ScanOptions): number {
     classPrefix = DEFAULT_CLASS_PREFIX,
     autoDetect = false,
     maxInputLength,
+    force = false,
+    onError,
   } = options;
 
   const root = container ?? (typeof document !== "undefined" ? document.body : null);
@@ -145,13 +264,19 @@ export function scan(options: ScanOptions): number {
 
   for (const element of elements) {
     if (!root.contains(element)) continue;
-    const highlighted = highlightElement(element, registry, languages, {
-      theme: resolvedTheme,
-      lineNumbers,
-      classPrefix,
-      autoDetect,
-      maxInputLength,
-    });
+    const highlighted = tryHighlightElement(
+      element,
+      registry,
+      languages,
+      {
+        theme: resolvedTheme,
+        lineNumbers,
+        classPrefix,
+        autoDetect,
+        maxInputLength,
+      },
+      { force, reuseStoredSource: force, onError },
+    );
     if (highlighted) count++;
   }
 
@@ -175,6 +300,8 @@ export function observe(options: ScanOptions): () => void {
     classPrefix = DEFAULT_CLASS_PREFIX,
     autoDetect = false,
     maxInputLength,
+    force = false,
+    onError,
   } = options;
 
   const root = container ?? (typeof document !== "undefined" ? document.body : null);
@@ -201,7 +328,11 @@ export function observe(options: ScanOptions): () => void {
   const elements = root.querySelectorAll(selector);
   for (const element of elements) {
     if (!root.contains(element)) continue;
-    highlightElement(element, registry, languages, highlightOpts);
+    tryHighlightElement(element, registry, languages, highlightOpts, {
+      force,
+      reuseStoredSource: force,
+      onError,
+    });
   }
 
   // Set up MutationObserver
@@ -249,13 +380,12 @@ export function observe(options: ScanOptions): () => void {
         continue;
       }
       if (!root.contains(element)) continue;
-      highlightElement(
+      tryHighlightElement(
         element,
         registry,
         languages,
         highlightOpts,
-        true,
-        internallyMutated,
+        { force: true, internallyMutated, onError },
       );
     }
 
@@ -263,13 +393,12 @@ export function observe(options: ScanOptions): () => void {
       if (!root.contains(element) || element.hasAttribute(HIGHLIGHTED_ATTR)) {
         continue;
       }
-      highlightElement(
+      tryHighlightElement(
         element,
         registry,
         languages,
         highlightOpts,
-        false,
-        internallyMutated,
+        { internallyMutated, onError },
       );
     }
   });

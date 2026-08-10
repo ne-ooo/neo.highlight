@@ -1,6 +1,6 @@
 ---
 name: anti-patterns
-description: Common mistakes when using neo.highlight — auto-detect unreliable for short/ambiguous code, grammar token order matters, greedy flag omission breaks multi-line tokens, applyTheme no-op in SSR, MutationObserver cleanup leak, detect cache keyed on first 500 chars, React context silent defaults, scan selector mismatch, shipping custom themes without contrast validation, building manual grammar alias maps
+description: Common mistakes when using neo.highlight — auto-detect unreliable for short or ambiguous code, grammar token order matters, greedy flag omission breaks multi-line tokens, applyTheme no-op in SSR, MutationObserver cleanup leak, React context silent defaults, scan selector mismatch, shipping custom themes without contrast validation, building manual grammar alias maps
 version: "1.2.0"
 globs:
   - "**/*.ts"
@@ -214,42 +214,6 @@ useEffect(() => {
 
 Source: `src/core/scanner.ts` — MutationObserver setup and disconnect
 
-### [HIGH] Detect cache is keyed on first 500 characters only
-
-Wrong:
-
-```typescript
-// AI expects different results for files with same beginning
-import { detectLanguage } from "@lpm.dev/neo.highlight";
-
-const header = "// Common license header\n// MIT License...\n".repeat(20);
-
-const jsCode = header + 'function main() { console.log("js") }';
-const tsCode = header + 'function main(): void { console.log("ts") }';
-
-detectLanguage(jsCode, [javascript, typescript]); // Cached result
-detectLanguage(tsCode, [javascript, typescript]); // Returns SAME result!
-// First 500 chars are identical → cache hit → wrong language for second call
-```
-
-Correct:
-
-```typescript
-// Option 1: Disable cache for dynamic content
-detectLanguage(code, grammars, { noCache: true });
-
-// Option 2: Clear cache between batches
-import { clearDetectCache } from "@lpm.dev/neo.highlight";
-clearDetectCache();
-
-// Option 3: Don't rely on auto-detect for similar files
-// Specify language explicitly when possible
-```
-
-The detection cache uses an LRU with 100 entries, keyed on the first 500 characters of code + grammar names. Files with identical headers/imports but different language features later in the file will return cached (potentially wrong) results. Use `noCache: true` or `clearDetectCache()` when processing files with shared prefixes.
-
-Source: `src/core/detect.ts` — LRU cache keyed on `code.slice(0, 500)`
-
 ### [MEDIUM] React context returns defaults without `<HighlightProvider>`
 
 Wrong:
@@ -428,6 +392,6 @@ const grammar = resolveGrammar(languageString, grammars);
 // resolveGrammar("py", grammars) → python grammar
 ```
 
-`resolveGrammar()` checks each grammar's `name` and `aliases` array, case-insensitively. It stays in sync with grammar definitions — no manual alias maintenance needed.
+`resolveGrammar()` checks each grammar's `name` and `aliases` array. It ignores case and surrounding whitespace. It stays in sync with grammar definitions, so you do not need a manual alias map.
 
-Source: `src/core/grammars.ts` — `resolveGrammar()` implementation
+Source: `src/core/grammar-utils.ts` — `resolveGrammar()` implementation

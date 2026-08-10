@@ -1,6 +1,17 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 const COPIED_DURATION = 2000;
+const VISUALLY_HIDDEN_STYLE: React.CSSProperties = {
+  position: "absolute",
+  width: "1px",
+  height: "1px",
+  padding: 0,
+  margin: "-1px",
+  overflow: "hidden",
+  clip: "rect(0, 0, 0, 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+};
 
 export interface CopyButtonProps {
   /** The raw code text to copy */
@@ -35,6 +46,13 @@ export function CopyButton({
 }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current !== undefined) clearTimeout(timerRef.current);
+    },
+    [],
+  );
 
   const handleClick = useCallback(async () => {
     let success = false;
@@ -90,14 +108,25 @@ export function CopyButton({
     .join(" ");
 
   return (
-    <button
-      type="button"
-      className={buttonClass}
-      style={style}
-      onClick={handleClick}
-      aria-label={copied ? copiedLabel : label}
-    >
-      {copied ? copiedLabel : label}
-    </button>
+    <>
+      <button
+        type="button"
+        className={buttonClass}
+        style={style}
+        onClick={handleClick}
+        aria-label={label}
+      >
+        {copied ? copiedLabel : label}
+      </button>
+      <span
+        className={`${classPrefix}-copy-status`}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={VISUALLY_HIDDEN_STYLE}
+      >
+        {copied ? copiedLabel : ""}
+      </span>
+    </>
   );
 }
