@@ -25,7 +25,7 @@ export const latex: Grammar = {
       },
     },
     "math-display": {
-      pattern: /\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]/,
+      pattern: /\$\$(?:(?!\$\$)[\s\S])*\$\$|\\\[(?:(?!\\\[|\\\])[\s\S])*\\\]/,
       greedy: true,
       alias: "string",
       inside: {
@@ -43,7 +43,7 @@ export const latex: Grammar = {
       },
     },
     "optional-argument": {
-      pattern: /\[[^\]]*\]/,
+      pattern: /\[[^\[\]]*\]/,
       inside: {
         punctuation: /[[\]]/,
       },

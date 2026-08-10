@@ -10,10 +10,10 @@ export const php: Grammar = {
     },
     comment: [
       { pattern: /\/\/.*|#.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     "doc-comment": {
-      pattern: /\/\*\*[\s\S]*?\*\//,
+      pattern: /\/\*\*(?:(?!\/\*\*|\*\/)[\s\S])*\*\//,
       greedy: true,
       alias: "comment",
       inside: {
@@ -25,17 +25,17 @@ export const php: Grammar = {
     },
     string: [
       {
-        pattern: /<<<'(\w+)'\r?\n[\s\S]*?\r?\n\1;/,
+        pattern: /<<<'(\w+)'\r?\n(?:(?!<<<)[\s\S])*?\r?\n\1;/,
         greedy: true,
         alias: "nowdoc",
       },
       {
-        pattern: /<<<(\w+)\r?\n[\s\S]*?\r?\n\1;/,
+        pattern: /<<<(\w+)\r?\n(?:(?!<<<)[\s\S])*?\r?\n\1;/,
         greedy: true,
         alias: "heredoc",
         inside: {
           interpolation: {
-            pattern: /\{\$[^}]+\}|\$\w+(?:\[[\w']+\]|->\w+)*/,
+            pattern: /\{\$[^{}\r\n]+\}|\$\w+(?:\[[\w']+\]|->\w+)*/,
             inside: {
               variable: /\$\w+/,
               punctuation: /[{}\[\]\->]/,
@@ -48,7 +48,7 @@ export const php: Grammar = {
         greedy: true,
         inside: {
           interpolation: {
-            pattern: /\{\$[^}]+\}|\$\w+(?:\[[\w']+\]|->\w+)*/,
+            pattern: /\{\$[^{}\r\n]+\}|\$\w+(?:\[[\w']+\]|->\w+)*/,
             inside: {
               variable: /\$\w+/,
               punctuation: /[{}\[\]\->]/,
@@ -62,7 +62,7 @@ export const php: Grammar = {
       },
     ],
     attribute: {
-      pattern: /#\[[\s\S]*?\]/,
+      pattern: /#\[(?:(?!#\[|\])[\s\S])*\]/,
       greedy: true,
       alias: "decorator",
       inside: {

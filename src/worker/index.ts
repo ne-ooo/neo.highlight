@@ -8,6 +8,9 @@ export interface HighlightWorkerRequest {
   code: string;
   language: string;
   maxInputLength?: TokenizeOptions["maxInputLength"];
+  maxMatchCount?: TokenizeOptions["maxMatchCount"];
+  maxTokenCount?: TokenizeOptions["maxTokenCount"];
+  maxTokenDepth?: TokenizeOptions["maxTokenDepth"];
 }
 
 export interface HighlightWorkerSuccess {
@@ -67,6 +70,9 @@ export function handleHighlightWorkerRequest(
       ok: true,
       tokens: tokenize(request.code, grammar, {
         maxInputLength: request.maxInputLength,
+        maxMatchCount: request.maxMatchCount,
+        maxTokenCount: request.maxTokenCount,
+        maxTokenDepth: request.maxTokenDepth,
       }),
     };
   } catch (error) {

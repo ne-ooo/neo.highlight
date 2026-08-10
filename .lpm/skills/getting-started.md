@@ -1,6 +1,6 @@
 ---
 name: getting-started
-description: How to use neo.highlight — React (Highlight, AutoHighlight, HighlightProvider), vanilla JS (highlight, scan, observe), core API (tokenize, renderToHTML, resolveGrammar), 55 grammars, 10 WCAG AA themes, custom themes, validateThemeContrast, getDualThemeStylesheet, SSR/edge, line/diff highlighting, tree-shaking
+description: Use neo.highlight with React, vanilla JavaScript, the core API, built-in grammars, themes, SSR, and line highlighting
 version: "1.2.0"
 globs:
   - "**/*.ts"
@@ -320,7 +320,13 @@ Each grammar has `name`, optional `aliases` (e.g., `["js", "mjs"]` for JavaScrip
 
 Framework grammars extend base grammars: Svelte/Vue/Astro/Handlebars extend HTML, Less extends CSS, Objective-C extends C.
 
-Custom grammars are supported — define a `Grammar` object with `name` and `tokens`. See the `Grammar` type export for the full interface.
+Custom grammars use a `Grammar` object with `name` and `tokens`.
+
+CAUTION: Use only trusted custom grammars. An unsafe regular expression can block the JavaScript thread.
+
+Do not accept custom grammars from users. Run them in a worker with an application timeout.
+
+The default resource limits are `250000`, `100000`, `100000`, `10000000`, `10000`, and `100`.
 
 ### `resolveGrammar()` — Resolve Language Strings to Grammars
 
@@ -337,10 +343,10 @@ const grammars = [javascript, python, typescript];
 resolveGrammar("js", grammars); // → javascript grammar
 resolveGrammar("py", grammars); // → python grammar
 resolveGrammar("ts", grammars); // → typescript grammar
-resolveGrammar("unknown", grammars); // → null
+resolveGrammar("unknown", grammars); // → undefined
 ```
 
-Checks grammar `name` and `aliases`. The lookup ignores case and surrounding whitespace. It returns the `Grammar` object or `null`.
+Checks grammar `name` and `aliases`. The lookup ignores case and surrounding whitespace. It returns the `Grammar` object or `undefined`.
 
 ## Themes (10 Built-in, WCAG AA Compliant)
 
@@ -490,7 +496,9 @@ if (result) {
 
 The base score uses keyword density (35%), coverage (30%), diversity (20%), and high-value tokens (15%). Language profiles add positive and negative syntax evidence. A derived grammar must have syntax that identifies it before it can outrank its base grammar.
 
-The LRU cache has 100 entries. Its key uses the complete analyzed sample and grammar identities. Prefer explicit `class="language-*"` attributes. Use auto-detection only as a fallback.
+The 100-entry cache key includes the sample and the complete grammar structure. Samples longer than 10000 units bypass the cache.
+
+Prefer explicit `class="language-*"` attributes. Use auto-detection only as a fallback.
 
 ## Tree-Shaking
 

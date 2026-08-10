@@ -5,7 +5,7 @@ export const haskell: Grammar = {
   aliases: ["hs"],
   tokens: {
     comment: [
-      { pattern: /\{-[\s\S]*?-\}/, greedy: true },
+      { pattern: /\{-(?:(?!\{-|-\})[\s\S])*-\}/, greedy: true },
       { pattern: /--.*/, greedy: true },
     ],
     string: [

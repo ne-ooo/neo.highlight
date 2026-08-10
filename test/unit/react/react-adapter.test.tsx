@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import React from "react";
 import { render, cleanup } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { Highlight } from "../../../src/react/highlight";
 import { AutoHighlight } from "../../../src/react/auto-highlight";
 import {
@@ -88,6 +89,31 @@ describe("Highlight component", () => {
     );
     expect(container.innerHTML).toContain("hl-keyword");
     expect(container.innerHTML).not.toContain("neo-hl-keyword");
+  });
+
+  it("enforces tokenizer work limits", () => {
+    const denseGrammar = {
+      name: "dense",
+      tokens: { marker: /a/ },
+    };
+
+    expect(() =>
+      renderToString(
+        <Highlight language={denseGrammar} maxMatchCount={1}>
+          {"aa"}
+        </Highlight>,
+      ),
+    ).toThrow(/maxMatchCount/i);
+  });
+
+  it("enforces renderer output limits", () => {
+    expect(() =>
+      renderToString(
+        <Highlight language={javascript} maxRenderedLength={10}>
+          {"const x = 42;"}
+        </Highlight>,
+      ),
+    ).toThrow(/maxRenderedLength/i);
   });
 });
 

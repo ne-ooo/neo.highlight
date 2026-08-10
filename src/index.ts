@@ -8,8 +8,21 @@
  * -----------------------------------------------------------------------------------------------*/
 
 // Core API
-export { tokenize, getPlainText, createRegistry, DEFAULT_MAX_INPUT_LENGTH } from "./core/tokenizer";
-export { renderToHTML, getThemeStylesheet } from "./core/renderer";
+export {
+  tokenize,
+  getPlainText,
+  createRegistry,
+  DEFAULT_MAX_INPUT_LENGTH,
+  DEFAULT_MAX_MATCH_COUNT,
+  DEFAULT_MAX_TOKEN_COUNT,
+  DEFAULT_MAX_TOKEN_DEPTH,
+} from "./core/tokenizer";
+export {
+  renderToHTML,
+  getThemeStylesheet,
+  DEFAULT_MAX_RENDERED_LENGTH,
+  DEFAULT_MAX_LINES,
+} from "./core/renderer";
 export { applyTheme, registerTheme, registerThemes, getTheme, getThemeCSS, resolveTheme, resolveThemeOrThrow, getDualThemeStylesheet } from "./core/themes";
 export { resolveGrammar } from "./core/grammar-utils";
 export { scan, observe, autoHighlight } from "./core/scanner";

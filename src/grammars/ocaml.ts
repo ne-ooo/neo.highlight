@@ -5,12 +5,12 @@ export const ocaml: Grammar = {
   aliases: ["ml"],
   tokens: {
     comment: {
-      pattern: /\(\*[\s\S]*?\*\)/,
+      pattern: /\(\*(?:(?!\(\*|\*\))[\s\S])*\*\)/,
       greedy: true,
     },
     string: [
       { pattern: /"(?:\\[\s\S]|[^\\"])*"/, greedy: true },
-      { pattern: /\{[a-z]*\|[\s\S]*?\|[a-z]*\}/, greedy: true },
+      { pattern: /\{[a-z]*\|(?:(?!\{[a-z]*\||\|[a-z]*\})[\s\S])*\|[a-z]*\}/, greedy: true },
     ],
     char: {
       pattern: /'(?:\\[\s\S]|[^\\'])'/,

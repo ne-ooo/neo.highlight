@@ -250,6 +250,30 @@ describe("observe", () => {
     cleanup();
   });
 
+  it("should not traverse generated token spans after dynamic highlighting", async () => {
+    const matches = vi.spyOn(Element.prototype, "matches");
+    const queryAll = vi.spyOn(Element.prototype, "querySelectorAll");
+    const cleanup = observe({
+      languages: [javascript],
+      container,
+    });
+    const target = createCodeBlock(
+      Array.from({ length: 2_000 }, (_, index) => `const x${index}=${index};`).join(""),
+      "js",
+    );
+    container.appendChild(target);
+    const code = target.querySelector("code")!;
+
+    await vi.waitFor(() => {
+      expect(code.getAttribute("data-neo-highlighted")).toBe("true");
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(matches.mock.calls.length).toBeLessThan(10);
+    expect(queryAll.mock.calls.length).toBeLessThan(10);
+    cleanup();
+  });
+
   it("should release its theme when MutationObserver is unavailable", () => {
     vi.stubGlobal("MutationObserver", undefined);
     const cleanup = observe({

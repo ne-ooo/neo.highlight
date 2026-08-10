@@ -333,8 +333,41 @@ describe("detectLanguage", () => {
     const code = `const x = 42; function hello() { return "world"; }`;
     const result1 = detectLanguage(code, allGrammars);
     const result2 = detectLanguage(code, allGrammars);
-    // Should return exact same reference from cache
-    expect(result1).toBe(result2);
+    expect(result1).toStrictEqual(result2);
+    expect(result1).not.toBe(result2);
+    expect(result1!.candidates).not.toBe(result2!.candidates);
+  });
+
+  it("invalidates cached results when a mutable grammar changes", () => {
+    const grammarA: Grammar = {
+      name: "a",
+      tokens: { marker: /alpha/ },
+    };
+    const grammarB: Grammar = {
+      name: "b",
+      tokens: { marker: /beta/ },
+    };
+
+    expect(
+      detectLanguage("alpha", [grammarA, grammarB], { minScore: 0.01 })?.grammar,
+    ).toBe(grammarA);
+    grammarA.tokens.marker = /never/;
+    grammarB.tokens.marker = /alpha/;
+    expect(
+      detectLanguage("alpha", [grammarA, grammarB], { minScore: 0.01 })?.grammar,
+    ).toBe(grammarB);
+  });
+
+  it("does not let callers poison cached result objects", () => {
+    const code = `const x = 42; function hello() { return "world"; }`;
+    const first = detectLanguage(code, allGrammars)!;
+    const originalScore = first.score;
+    first.score = 0;
+    first.candidates.length = 0;
+
+    const second = detectLanguage(code, allGrammars)!;
+    expect(second.score).toBe(originalScore);
+    expect(second.candidates).toHaveLength(allGrammars.length);
   });
 
   it("skips cache with noCache option", () => {

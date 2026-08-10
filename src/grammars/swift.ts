@@ -6,7 +6,7 @@ export const swift: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     "string-literal": {
       pattern: /"""[\s\S]*?"""/,
@@ -14,7 +14,7 @@ export const swift: Grammar = {
       alias: "string",
       inside: {
         interpolation: {
-          pattern: /\\\([^)]*\)/,
+          pattern: /\\\([^()\r\n]*\)/,
           inside: {
             punctuation: /^\\\(|\)$/,
           },
@@ -26,7 +26,7 @@ export const swift: Grammar = {
       greedy: true,
       inside: {
         interpolation: {
-          pattern: /\\\([^)]*\)/,
+          pattern: /\\\([^()\r\n]*\)/,
           inside: {
             punctuation: /^\\\(|\)$/,
           },

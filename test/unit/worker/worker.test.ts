@@ -57,4 +57,19 @@ describe("highlight worker", () => {
       expect(response.error.message).toContain("maxInputLength");
     }
   });
+
+  it("enforces tokenizer work limits off the main thread", () => {
+    const response = handleHighlightWorkerRequest({
+      id: 3,
+      code: "const x = 42;",
+      language: "javascript",
+      maxMatchCount: 0,
+    });
+
+    expect(response.ok).toBe(false);
+    if (!response.ok) {
+      expect(response.error.name).toBe("RangeError");
+      expect(response.error.message).toContain("maxMatchCount");
+    }
+  });
 });

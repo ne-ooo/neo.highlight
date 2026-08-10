@@ -62,8 +62,14 @@ export interface Grammar {
 
 /** Options controlling tokenizer resource usage. */
 export interface TokenizeOptions {
-  /** Maximum UTF-16 code units accepted per call (default: 1,000,000). */
+  /** Maximum UTF-16 code units accepted per call (default: 250,000). */
   maxInputLength?: number | undefined;
+  /** Maximum regex matches examined per call (default: 100,000). */
+  maxMatchCount?: number | undefined;
+  /** Maximum structured token nodes created per call (default: 100,000). */
+  maxTokenCount?: number | undefined;
+  /** Maximum nested grammar depth (default: 100). */
+  maxTokenDepth?: number | undefined;
 }
 
 /**
@@ -147,6 +153,14 @@ export interface RenderOptions {
   wrapLines?: boolean | undefined;
   /** Line diff highlighting (added/removed/modified lines) */
   diffHighlight?: DiffHighlight | undefined;
+  /** Maximum token nodes traversed while rendering (default: 100,000). */
+  maxTokenCount?: number | undefined;
+  /** Maximum generated HTML length in UTF-16 code units (default: 10,000,000). */
+  maxRenderedLength?: number | undefined;
+  /** Maximum source lines rendered (default: 10,000). */
+  maxLines?: number | undefined;
+  /** Maximum nested token-tree depth (default: 100). */
+  maxTokenDepth?: number | undefined;
 }
 
 /**
@@ -184,6 +198,16 @@ export interface ScanOptions {
   autoDetect?: boolean | undefined;
   /** Maximum UTF-16 code units accepted by the tokenizer. */
   maxInputLength?: number | undefined;
+  /** Maximum regex matches examined by the tokenizer. */
+  maxMatchCount?: number | undefined;
+  /** Maximum token nodes created or rendered. */
+  maxTokenCount?: number | undefined;
+  /** Maximum generated HTML length in UTF-16 code units. */
+  maxRenderedLength?: number | undefined;
+  /** Maximum source lines rendered. */
+  maxLines?: number | undefined;
+  /** Maximum grammar and token-tree nesting depth. */
+  maxTokenDepth?: number | undefined;
   /** Re-highlight matching elements even if they were highlighted before. */
   force?: boolean | undefined;
   /** Called when one element cannot be highlighted; remaining elements continue. */

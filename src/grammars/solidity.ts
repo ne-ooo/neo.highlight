@@ -7,7 +7,7 @@ export const solidity: Grammar = {
     comment: [
       { pattern: /\/\/\/.*/, greedy: true, alias: "doc-comment" },
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     string: [
       { pattern: /(["'])(?:\\[\s\S]|(?!\1)[^\\])*\1/, greedy: true },

@@ -7,7 +7,7 @@ export const dart: Grammar = {
     comment: [
       { pattern: /\/\/\/.*/, greedy: true, alias: "doc-comment" },
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     string: [
       {
@@ -19,7 +19,7 @@ export const dart: Grammar = {
         greedy: true,
         inside: {
           interpolation: {
-            pattern: /\$(?:\{[^}]*\}|\w+)/,
+            pattern: /\$(?:\{[^{}\r\n]*\}|\w+)/,
             inside: {
               punctuation: /^\$\{?|\}$/,
             },

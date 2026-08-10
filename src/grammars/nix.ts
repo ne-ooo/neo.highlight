@@ -5,7 +5,7 @@ export const nix: Grammar = {
   aliases: ["nixos"],
   tokens: {
     comment: [
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
       { pattern: /#.*/, greedy: true },
     ],
     string: [
@@ -14,7 +14,7 @@ export const nix: Grammar = {
         greedy: true,
         inside: {
           interpolation: {
-            pattern: /\$\{[^}]*\}/,
+            pattern: /\$\{(?:(?!\$\{|})[\s\S])*\}/,
             inside: {
               punctuation: /^\$\{|\}$/,
             },
@@ -26,7 +26,7 @@ export const nix: Grammar = {
         greedy: true,
         inside: {
           interpolation: {
-            pattern: /\$\{[^}]*\}/,
+            pattern: /\$\{(?:(?!\$\{|})[\s\S])*\}/,
             inside: {
               punctuation: /^\$\{|\}$/,
             },

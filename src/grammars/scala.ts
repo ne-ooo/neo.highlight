@@ -6,7 +6,7 @@ export const scala: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     "triple-string": {
       pattern: /"""[\s\S]*?"""/,
@@ -14,7 +14,7 @@ export const scala: Grammar = {
       alias: "string",
       inside: {
         interpolation: {
-          pattern: /\$(?:\{[^}]*\}|\w+)/,
+          pattern: /\$(?:\{[^{}\r\n]*\}|\w+)/,
           inside: {
             punctuation: /^\$\{?|\}$/,
           },
@@ -26,7 +26,7 @@ export const scala: Grammar = {
       greedy: true,
       inside: {
         interpolation: {
-          pattern: /\$(?:\{[^}]*\}|\w+)/,
+          pattern: /\$(?:\{[^{}\r\n]*\}|\w+)/,
           inside: {
             punctuation: /^\$\{?|\}$/,
           },

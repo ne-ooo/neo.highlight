@@ -6,7 +6,7 @@ export const handlebars: Grammar = {
   aliases: ["hbs", "mustache"],
   tokens: {
     "handlebars-comment": {
-      pattern: /\{\{!--[\s\S]*?--\}\}|\{\{![\s\S]*?\}\}/,
+      pattern: /\{\{!--(?:(?!\{\{!--|--\}\})[\s\S])*--\}\}|\{\{!(?:(?!\{\{!|\}\})[\s\S])*\}\}/,
       greedy: true,
       alias: "comment",
     },
@@ -19,7 +19,7 @@ export const handlebars: Grammar = {
     },
     block: {
       pattern:
-        /\{\{[#/~^]?\s*[\w.]+[^}]*\}\}/,
+        /\{\{[#/~^]?[^\S\r\n]*[\w.]+[^{}]*\}\}/,
       greedy: true,
       inside: {
         punctuation: /^\{\{[#/~^]?|\}\}$/,

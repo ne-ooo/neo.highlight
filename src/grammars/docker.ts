@@ -20,7 +20,7 @@ export const docker: Grammar = {
     ],
     instruction: {
       pattern:
-        /^\s*(?:FROM|RUN|CMD|LABEL|MAINTAINER|EXPOSE|ENV|ADD|COPY|ENTRYPOINT|VOLUME|USER|WORKDIR|ARG|ONBUILD|STOPSIGNAL|HEALTHCHECK|SHELL)\b/mi,
+        /^[^\S\r\n]*(?:FROM|RUN|CMD|LABEL|MAINTAINER|EXPOSE|ENV|ADD|COPY|ENTRYPOINT|VOLUME|USER|WORKDIR|ARG|ONBUILD|STOPSIGNAL|HEALTHCHECK|SHELL)\b/mi,
       alias: "keyword",
     },
     "from-image": {
@@ -33,7 +33,7 @@ export const docker: Grammar = {
       },
     },
     variable: [
-      /\$\{[^}]+\}/,
+      /\$\{[^{}\r\n]+\}/,
       /\$\w+/,
     ],
     "env-pair": {

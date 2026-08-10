@@ -5,7 +5,7 @@ export const css: Grammar = {
   aliases: [],
   tokens: {
     comment: {
-      pattern: /\/\*[\s\S]*?\*\//,
+      pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//,
       greedy: true,
     },
     string: {
@@ -13,7 +13,7 @@ export const css: Grammar = {
       greedy: true,
     },
     "atrule": {
-      pattern: /@[\w-](?:[^;{\s]|\s+(?![\s{]))*(?:;|(?=\s*\{))/,
+      pattern: /@[\w-](?:[^;{\s]|[^\S\r\n]+(?![^\S\r\n{]))*(?:;|(?=[^\S\r\n]*\{))/,
       inside: {
         keyword: /^@[\w-]+/,
         selector: /(?:not|matches|is|where|has)\([^()]*\)/,
@@ -38,19 +38,19 @@ export const css: Grammar = {
     },
     selector: {
       pattern:
-        /(?:^|[{};\s])[^\s@;{}()][^;{}]*?(?=\s*\{)/,
+        /^[^\S\r\n]*[^\s@;{}()][^;{}\r\n]*(?=[^\S\r\n]*\{)/m,
       lookbehind: true,
       inside: {
         "class-name": /\.\w[\w-]*/,
         "pseudo-class": /:[\w-]+(?:\([^()]*\))?/,
         "pseudo-element": /::[\w-]+/,
         "id-selector": /#\w[\w-]*/,
-        "attribute-selector": /\[[^\]]+\]/,
+        "attribute-selector": /\[[^\[\]]+\]/,
         combinator: /[>+~]|(?=\s)\s(?=\S)/,
       },
     },
     property: {
-      pattern: /(?:^|[;\s{])[-\w]+(?=\s*:)/m,
+      pattern: /(?:^|[;{])[^\S\r\n]*[-\w]+(?=[^\S\r\n]*:)/m,
       lookbehind: true,
     },
     important: /!important\b/i,

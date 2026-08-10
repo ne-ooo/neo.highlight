@@ -5,32 +5,32 @@ export const powershell: Grammar = {
   aliases: ["ps1", "posh"],
   tokens: {
     comment: [
-      { pattern: /<#[\s\S]*?#>/, greedy: true },
+      { pattern: /<#(?:(?!<#|#>)[\s\S])*#>/, greedy: true },
       { pattern: /#.*/, greedy: true },
     ],
     string: [
       {
-        pattern: /@"[\s\S]*?"@/,
+        pattern: /@"(?:(?!@"|"@)[\s\S])*"@/,
         greedy: true,
         inside: {
           interpolation: {
-            pattern: /\$(?:\([^)]*\)|[\w{][^}]*\}?|\w+)/,
+            pattern: /\$(?:\([^()\r\n]*\)|\{[^{}\r\n]*\}|\w+)/,
           },
         },
       },
-      { pattern: /@'[\s\S]*?'@/, greedy: true },
+      { pattern: /@'(?:(?!@'|'@)[\s\S])*'@/, greedy: true },
       {
         pattern: /"(?:[^"`$]|`[\s\S]|\$(?!\(|[\w{]))*"/,
         greedy: true,
         inside: {
           interpolation: {
-            pattern: /\$(?:\([^)]*\)|[\w{][^}]*\}?|\w+)/,
+            pattern: /\$(?:\([^()\r\n]*\)|\{[^{}\r\n]*\}|\w+)/,
           },
         },
       },
       { pattern: /'(?:[^']|'')*'/, greedy: true },
     ],
-    variable: /\$(?:[\w]+|(?:\{[^}]+\}))/,
+    variable: /\$(?:[\w]+|(?:\{[^{}\r\n]+\}))/,
     keyword:
       /\b(?:Begin|Break|Catch|Class|Continue|Data|Define|Do|DynamicParam|Else|ElseIf|End|Enum|Exit|Filter|Finally|For|ForEach|From|Function|Hidden|If|In|InlineScript|Param|Parallel|Process|Return|Sequence|Switch|Throw|Trap|Try|Until|Using|Var|While|Workflow)\b/i,
     boolean: /\$(?:true|false|null)\b/i,

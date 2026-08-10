@@ -71,22 +71,22 @@ export const markdown: Grammar = {
       },
     },
     url: {
-      pattern: /!?\[[^\]]*\]\([^)]+\)/,
+      pattern: /!?\[[^\[\]\r\n]*\]\([^()\r\n]+\)/,
       inside: {
         variable: {
-          pattern: /(!?\[)[^\]]*(?=\])/,
+          pattern: /(!?\[)[^\[\]]*(?=\])/,
           lookbehind: true,
         },
         string: {
-          pattern: /\([^)]+\)/,
+          pattern: /\([^()]+\)/,
         },
         punctuation: /[![\]()]/,
       },
     },
     "reference-link": {
-      pattern: /!?\[[^\]]*\]\[[^\]]*\]/,
+      pattern: /!?\[[^\[\]\r\n]*\]\[[^\[\]\r\n]*\]/,
       inside: {
-        variable: /\[[^\]]*\]/,
+        variable: /\[[^\[\]]*\]/,
         punctuation: /[![\]]/,
       },
     },

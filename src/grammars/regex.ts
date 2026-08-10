@@ -5,7 +5,7 @@ export const regex: Grammar = {
   aliases: ["regexp"],
   tokens: {
     "char-class": {
-      pattern: /\[(?:\^)?(?:\\[\s\S]|[^\]\\])*\]/,
+      pattern: /\[(?:\^)?(?:\\[\s\S]|[^\[\]\\])*\]/,
       alias: "selector",
       inside: {
         "class-negation": {
@@ -54,7 +54,7 @@ export const regex: Grammar = {
       alias: "keyword",
     },
     "escape-char": {
-      pattern: /\\(?:[dDwWsStrnvf0]|x[\da-fA-F]{2}|u[\da-fA-F]{4}|u\{[\da-fA-F]+\}|c[A-Z]|p\{[^}]+\}|P\{[^}]+\}|[1-9]\d*|.)/,
+      pattern: /\\(?:[dDwWsStrnvf0]|x[\da-fA-F]{2}|u[\da-fA-F]{4}|u\{[\da-fA-F]+\}|c[A-Z]|p\{[^{}\r\n]+\}|P\{[^{}\r\n]+\}|[1-9]\d*|.)/,
       alias: "constant",
     },
     alternation: {

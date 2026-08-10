@@ -6,7 +6,7 @@ export const c: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     string: [
       {
@@ -35,11 +35,11 @@ export const c: Grammar = {
           alias: "constant",
         },
         string: {
-          pattern: /<[^>]+>|"(?:\\[\s\S]|[^\\"\r\n])*"/,
+          pattern: /<[^<>\r\n]+>|"(?:\\[\s\S]|[^\\"\r\n])*"/,
           greedy: true,
         },
         comment: {
-          pattern: /\/\/.*|\/\*[\s\S]*?\*\//,
+          pattern: /\/\/.*|\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//,
           greedy: true,
         },
         punctuation: /[()\\,]/,

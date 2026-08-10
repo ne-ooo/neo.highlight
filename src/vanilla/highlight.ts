@@ -5,6 +5,8 @@ import { renderToHTML } from "../core/renderer";
 export interface HighlightOptions extends Omit<RenderOptions, "language"> {
   /** Maximum UTF-16 code units accepted by the tokenizer. */
   maxInputLength?: TokenizeOptions["maxInputLength"];
+  /** Maximum regex matches examined by the tokenizer. */
+  maxMatchCount?: TokenizeOptions["maxMatchCount"];
 }
 
 /**
@@ -20,10 +22,23 @@ export function highlight(
   language: Grammar,
   options: HighlightOptions = {},
 ): string {
-  const { maxInputLength, ...renderOptions } = options;
-  const tokens: Token[] = tokenize(code, language, { maxInputLength });
+  const {
+    maxInputLength,
+    maxMatchCount,
+    maxTokenCount,
+    maxTokenDepth,
+    ...renderOptions
+  } = options;
+  const tokens: Token[] = tokenize(code, language, {
+    maxInputLength,
+    maxMatchCount,
+    maxTokenCount,
+    maxTokenDepth,
+  });
   return renderToHTML(tokens, {
     ...renderOptions,
     language: language.name,
+    maxTokenCount,
+    maxTokenDepth,
   });
 }

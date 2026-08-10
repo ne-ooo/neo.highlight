@@ -16,6 +16,16 @@ export interface AutoHighlightProps {
   autoDetect?: boolean;
   /** Maximum UTF-16 code units accepted by the tokenizer. */
   maxInputLength?: number;
+  /** Maximum regex matches examined by the tokenizer. */
+  maxMatchCount?: number;
+  /** Maximum structured token nodes created or rendered. */
+  maxTokenCount?: number;
+  /** Maximum generated HTML length in UTF-16 code units. */
+  maxRenderedLength?: number;
+  /** Maximum source lines rendered. */
+  maxLines?: number;
+  /** Maximum grammar and token-tree nesting depth. */
+  maxTokenDepth?: number;
   /** Called when one code block cannot be highlighted. */
   onError?: (error: unknown, element: Element) => void;
 }
@@ -42,6 +52,11 @@ export function AutoHighlight({
   style,
   autoDetect,
   maxInputLength,
+  maxMatchCount,
+  maxTokenCount,
+  maxRenderedLength,
+  maxLines,
+  maxTokenDepth,
   onError,
 }: AutoHighlightProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -66,12 +81,31 @@ export function AutoHighlight({
       observe: true,
       autoDetect,
       maxInputLength,
+      maxMatchCount,
+      maxTokenCount,
+      maxRenderedLength,
+      maxLines,
+      maxTokenDepth,
       force: true,
       onError,
     });
 
     return cleanup;
-  }, [selector, languages, theme, lineNumbers, classPrefix, autoDetect, maxInputLength, onError]);
+  }, [
+    selector,
+    languages,
+    theme,
+    lineNumbers,
+    classPrefix,
+    autoDetect,
+    maxInputLength,
+    maxMatchCount,
+    maxTokenCount,
+    maxRenderedLength,
+    maxLines,
+    maxTokenDepth,
+    onError,
+  ]);
 
   return (
     <div ref={containerRef} className={className} style={style}>

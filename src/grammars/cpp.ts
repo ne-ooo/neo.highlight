@@ -7,7 +7,7 @@ export const cpp: Grammar = {
   tokens: {
     ...c.tokens,
     "raw-string": {
-      pattern: /R"([^()\s]*)\([\s\S]*?\)\1"/,
+      pattern: /R"([^()\s]{0,16})\((?:(?!R")[\s\S])*?\)\1"/,
       greedy: true,
       alias: "string",
     },

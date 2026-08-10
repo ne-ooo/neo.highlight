@@ -6,7 +6,7 @@ export const kotlin: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     string: [
       {
@@ -15,7 +15,7 @@ export const kotlin: Grammar = {
         alias: "template-string",
         inside: {
           interpolation: {
-            pattern: /\$\{[^}]*\}|\$\w+/,
+            pattern: /\$\{(?:(?!\$\{|})[\s\S])*\}|\$\w+/,
             inside: {
               punctuation: /^\$\{|\}$/,
               variable: /^\$\w+$/,
@@ -28,7 +28,7 @@ export const kotlin: Grammar = {
         greedy: true,
         inside: {
           interpolation: {
-            pattern: /\$\{[^}]*\}|\$\w+/,
+            pattern: /\$\{(?:(?!\$\{|})[\s\S])*\}|\$\w+/,
             inside: {
               punctuation: /^\$\{|\}$/,
               variable: /^\$\w+$/,

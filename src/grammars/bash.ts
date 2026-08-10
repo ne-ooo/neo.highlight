@@ -25,11 +25,11 @@ export const bash: Grammar = {
         },
       },
       {
-        pattern: /"(?:\\[\s\S]|\$(?:\([^)]+\)|\{[^}]+\}|\w+)|[^\\$"\r\n])*"/,
+        pattern: /"(?:\\[\s\S]|\$(?:\([^()\r\n]+\)|\{[^{}\r\n]+\}|\w+)|[^\\$"\r\n])*"/,
         greedy: true,
         inside: {
           interpolation: {
-            pattern: /\$(?:\([^)]+\)|\{[^}]+\}|\w+)/,
+            pattern: /\$(?:\([^()\r\n]+\)|\{[^{}\r\n]+\}|\w+)/,
             inside: {
               variable: /\$\w+/,
               punctuation: /[(){}]/,
@@ -43,16 +43,16 @@ export const bash: Grammar = {
       },
     ],
     heredoc: {
-      pattern: /<<-?\s*(['"]?)(\w+)\1\s[\s\S]*?^\2$/m,
+      pattern: /<<-?[^\S\r\n]*(['"]?)(\w+)\1[^\S\r\n]*(?:\r?\n)(?:(?!<<-?)[\s\S])*?^\2$/m,
       greedy: true,
       alias: "string",
       inside: {
-        punctuation: /^<<-?\s*['"]?\w+['"]?/,
+        punctuation: /^<<-?[^\S\r\n]*['"]?\w+['"]?/,
       },
     },
     variable: [
-      /\$\{[^}]+\}/,
-      /\$\([^)]+\)/,
+      /\$\{[^{}\r\n]+\}/,
+      /\$\([^()\r\n]+\)/,
       /\$(?:[a-zA-Z_]\w*|[0-9!@#$*?_-])/,
     ],
     function: {

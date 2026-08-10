@@ -7,13 +7,13 @@ export const less: Grammar = {
   tokens: {
     ...css.tokens,
     comment: [
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
       { pattern: /\/\/.*/, greedy: true },
     ],
     atrule: [
       {
         pattern:
-          /@[\w-](?:\((?:[^(){}]|\([^(){}]*\))*\)|[^(){};\s]|\s+(?!\s))*?(?=\s*\{)/,
+          /@[\w-](?:\([^(){}\r\n]*\)|[^(){};@\r\n])*(?=[^\S\r\n]*\{)/,
         greedy: true,
         inside: {
           punctuation: /[:()]/,
@@ -35,7 +35,7 @@ export const less: Grammar = {
     ],
     variable: /@[\w-]+/,
     mixin: {
-      pattern: /(?:^|[{;])\s*\.[\w-]+\s*(?:\([^)]*\))?\s*[;{]/m,
+      pattern: /(?:^|[{;])[^\S\r\n]*\.[\w-]+[^\S\r\n]*(?:\([^()\r\n]*\))?[^\S\r\n]*[;{]/m,
       lookbehind: true,
       alias: "function",
     },

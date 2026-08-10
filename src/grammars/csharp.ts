@@ -27,7 +27,7 @@ export const csharp: Grammar = {
         },
       },
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     string: [
       {
@@ -41,7 +41,7 @@ export const csharp: Grammar = {
         alias: "interpolated-string",
         inside: {
           interpolation: {
-            pattern: /\{[^}]*\}/,
+            pattern: /\{[^{}\r\n]*\}/,
             inside: {
               punctuation: /^\{|\}$/,
             },
@@ -64,7 +64,7 @@ export const csharp: Grammar = {
       alias: "string",
     },
     attribute: {
-      pattern: /\[[\s\S]*?\]/,
+      pattern: /\[(?:(?!\[|\])[\s\S])*\]/,
       inside: {
         "attr-name": /\w+(?=\s*[(\]])/,
         punctuation: /[[\]()]/,
