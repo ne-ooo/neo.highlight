@@ -123,7 +123,12 @@ import { dracula } from "@lpm.dev/neo.highlight/themes/dracula";
 | `classPrefix`     | `string`          | `"neo-hl"`   | CSS class prefix                      |
 | `className`       | `string`          | --           | Additional CSS class for the wrapper  |
 | `style`           | `CSSProperties`   | --           | Inline styles for the wrapper         |
-| `maxInputLength`  | `number`          | `1000000`    | Maximum tokenizer input length        |
+| `maxInputLength`  | `number`          | `250000`     | Maximum tokenizer input length        |
+| `maxMatchCount`   | `number`          | `100000`     | Maximum regex matches                 |
+| `maxTokenCount`   | `number`          | `100000`     | Maximum token nodes                   |
+| `maxRenderedLength` | `number`        | `10000000`   | Maximum HTML output length            |
+| `maxLines`        | `number`          | `10000`      | Maximum source lines                  |
+| `maxTokenDepth`   | `number`          | `100`        | Maximum grammar and token depth       |
 
 ### `<AutoHighlight>`
 
@@ -161,7 +166,12 @@ This rule keeps plain HTML assigned to HTML. TypeScript, TSX, JSX, Svelte, Handl
 | `className`   | `string`          | --           | Additional CSS class for the wrapper  |
 | `style`       | `CSSProperties`   | --           | Inline styles for the wrapper         |
 | `autoDetect`  | `boolean`         | `false`      | Detect blocks without a language hint |
-| `maxInputLength` | `number`       | `1000000`    | Maximum tokenizer input length        |
+| `maxInputLength` | `number`       | `250000`     | Maximum tokenizer input length        |
+| `maxMatchCount`  | `number`       | `100000`     | Maximum regex matches                 |
+| `maxTokenCount`  | `number`       | `100000`     | Maximum token nodes                   |
+| `maxRenderedLength` | `number`    | `10000000`   | Maximum HTML output length            |
+| `maxLines`       | `number`       | `10000`      | Maximum source lines                  |
+| `maxTokenDepth`  | `number`       | `100`        | Maximum grammar and token depth       |
 | `onError`     | `(error, element) => void` | -- | Receive errors for individual blocks |
 
 ### `<HighlightProvider>`
@@ -290,7 +300,12 @@ const html = highlight(
 | `highlightLines` | `number[]`        | --         | Lines to highlight (1-indexed)  |
 | `classPrefix`    | `string`          | `"neo-hl"` | CSS class prefix                |
 | `wrapCode`       | `boolean`         | `true`     | Wrap output in `<pre><code>`    |
-| `maxInputLength` | `number`          | `1000000`  | Maximum tokenizer input length  |
+| `maxInputLength` | `number`          | `250000`   | Maximum tokenizer input length  |
+| `maxMatchCount`  | `number`          | `100000`   | Maximum regex matches           |
+| `maxTokenCount`  | `number`          | `100000`   | Maximum token nodes             |
+| `maxRenderedLength` | `number`       | `10000000` | Maximum HTML output length      |
+| `maxLines`       | `number`          | `10000`    | Maximum source lines            |
+| `maxTokenDepth`  | `number`          | `100`      | Maximum grammar and token depth |
 
 ### `autoHighlight(options)`
 
@@ -400,9 +415,26 @@ worker.addEventListener("message", (event) => {
 
 The worker accepts built-in language names and aliases. Each response contains the request `id`.
 
-All tokenizer entry points reject input longer than 1,000,000 UTF-16 code units. Set `maxInputLength` to select a smaller limit.
+## Resource limits
 
-CAUTION: Set `maxInputLength` to `Infinity` only for trusted source code. Unlimited input can consume excessive CPU time.
+All entry points enforce resource limits. The limits apply to UTF-16 units, regex matches, token nodes, HTML output, lines, and nesting depth.
+
+| Option | Default | Scope |
+| ------ | ------- | ----- |
+| `maxInputLength` | `250000` | Tokenizer input |
+| `maxMatchCount` | `100000` | Regex matches |
+| `maxTokenCount` | `100000` | Created or rendered token nodes |
+| `maxRenderedLength` | `10000000` | Generated HTML |
+| `maxLines` | `10000` | Rendered source lines |
+| `maxTokenDepth` | `100` | Grammar and token-tree nesting |
+
+You can set each limit to `Infinity` for trusted source code. Finite limits are safer for user-controlled source code.
+
+CAUTION: Treat custom grammars as trusted executable regex configuration. One unsafe regex can block the JavaScript thread before a counter can stop it.
+
+Do not accept custom grammar objects from untrusted users. For custom grammars, use a worker and terminate it after an application deadline.
+
+The package tests every built-in grammar with adversarial input. Each regex test runs in an isolated subprocess with a hard timeout.
 
 ---
 
@@ -423,7 +455,7 @@ const grammars = [javascript, python, typescript];
 resolveGrammar("js", grammars);         // → javascript grammar
 resolveGrammar("python", grammars);     // → python grammar
 resolveGrammar("typescript", grammars); // → typescript grammar
-resolveGrammar("unknown", grammars);    // → null
+resolveGrammar("unknown", grammars);    // → undefined
 ```
 
 **Parameters:**

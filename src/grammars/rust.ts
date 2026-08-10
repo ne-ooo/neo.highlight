@@ -6,7 +6,7 @@ export const rust: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/\/?.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     string: [
       {
@@ -24,7 +24,7 @@ export const rust: Grammar = {
       alias: "string",
     },
     attribute: {
-      pattern: /#!?\[[\s\S]*?\]/,
+      pattern: /#!?\[(?:(?!#!?\[|\])[\s\S])*\]/,
       greedy: true,
       alias: "decorator",
       inside: {

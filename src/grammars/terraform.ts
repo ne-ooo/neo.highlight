@@ -7,15 +7,15 @@ export const terraform: Grammar = {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
       { pattern: /#.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     "heredoc-string": {
-      pattern: /<<-?\s*(\w+)[\s\S]*?^\s*\1/m,
+      pattern: /<<-?[^\S\r\n]*(\w+)[^\S\r\n]*(?:\r?\n)(?:(?!<<-?)[\s\S])*?^[^\S\r\n]*\1/m,
       greedy: true,
       alias: "string",
       inside: {
         interpolation: {
-          pattern: /\$\{[^}]*\}/,
+          pattern: /\$\{(?:(?!\$\{|})[\s\S])*\}/,
           inside: {
             punctuation: /^\$\{|\}$/,
           },
@@ -27,7 +27,7 @@ export const terraform: Grammar = {
       greedy: true,
       inside: {
         interpolation: {
-          pattern: /\$\{[^}]*\}/,
+          pattern: /\$\{(?:(?!\$\{|})[\s\S])*\}/,
           inside: {
             punctuation: /^\$\{|\}$/,
           },

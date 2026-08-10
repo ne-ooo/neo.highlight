@@ -320,7 +320,13 @@ Each grammar has `name`, optional `aliases` (e.g., `["js", "mjs"]` for JavaScrip
 
 Framework grammars extend base grammars: Svelte/Vue/Astro/Handlebars extend HTML, Less extends CSS, Objective-C extends C.
 
-Custom grammars are supported — define a `Grammar` object with `name` and `tokens`. See the `Grammar` type export for the full interface.
+Custom grammars are supported. Define a `Grammar` object with `name` and `tokens`.
+
+CAUTION: Treat custom grammars as trusted executable regex configuration. One unsafe regex can block the JavaScript thread.
+
+Do not accept custom grammar objects from untrusted users. For custom grammars, use a worker and terminate it after an application deadline.
+
+The default limits are `250000` input units, `100000` matches, `100000` token nodes, `10000000` HTML units, `10000` lines, and `100` nesting levels.
 
 ### `resolveGrammar()` — Resolve Language Strings to Grammars
 
@@ -337,10 +343,10 @@ const grammars = [javascript, python, typescript];
 resolveGrammar("js", grammars); // → javascript grammar
 resolveGrammar("py", grammars); // → python grammar
 resolveGrammar("ts", grammars); // → typescript grammar
-resolveGrammar("unknown", grammars); // → null
+resolveGrammar("unknown", grammars); // → undefined
 ```
 
-Checks grammar `name` and `aliases`. The lookup ignores case and surrounding whitespace. It returns the `Grammar` object or `null`.
+Checks grammar `name` and `aliases`. The lookup ignores case and surrounding whitespace. It returns the `Grammar` object or `undefined`.
 
 ## Themes (10 Built-in, WCAG AA Compliant)
 
@@ -490,7 +496,9 @@ if (result) {
 
 The base score uses keyword density (35%), coverage (30%), diversity (20%), and high-value tokens (15%). Language profiles add positive and negative syntax evidence. A derived grammar must have syntax that identifies it before it can outrank its base grammar.
 
-The LRU cache has 100 entries. Its key uses the complete analyzed sample and grammar identities. Prefer explicit `class="language-*"` attributes. Use auto-detection only as a fallback.
+The LRU cache has 100 entries. Its key includes the analyzed sample and the complete mutable grammar structure.
+
+Samples longer than 10000 units bypass the cache. Prefer explicit `class="language-*"` attributes. Use auto-detection only as a fallback.
 
 ## Tree-Shaking
 

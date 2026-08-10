@@ -263,6 +263,46 @@ describe("renderToHTML", () => {
     expect(html).toBe("");
   });
 
+  it("should enforce token, output, and line budgets", () => {
+    const nodes: Token[] = Array.from({ length: 5 }, () => ({
+      type: "keyword",
+      content: "x",
+      length: 1,
+    }));
+    expect(() =>
+      renderToHTML(nodes, { wrapCode: false, maxTokenCount: 4 }),
+    ).toThrow(/maxTokenCount/i);
+    expect(() =>
+      renderToHTML(["<&"], { wrapCode: false, maxRenderedLength: 5 }),
+    ).toThrow(/maxRenderedLength/i);
+    expect(() =>
+      renderToHTML(["a\nb\nc"], { wrapCode: false, maxLines: 2 }),
+    ).toThrow(/maxLines/i);
+  });
+
+  it("should reject cyclic and overly deep public token trees", () => {
+    const cyclic: TokenNode = {
+      type: "cycle",
+      content: [],
+      length: 0,
+    };
+    (cyclic.content as Token[]).push(cyclic);
+    expect(() => renderToHTML([cyclic], { wrapCode: false })).toThrow(/cycle/i);
+
+    const nested: TokenNode = {
+      type: "outer",
+      content: [{
+        type: "inner",
+        content: "x",
+        length: 1,
+      }],
+      length: 1,
+    };
+    expect(() =>
+      renderToHTML([nested], { wrapCode: false, maxTokenDepth: 0 }),
+    ).toThrow(/maxTokenDepth/i);
+  });
+
   describe("multi-line token handling", () => {
     it("each line should be a self-contained span with balanced tags", () => {
       // Token that spans 2 lines (like CSS selector spanning comment + :root)

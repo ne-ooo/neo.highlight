@@ -64,6 +64,11 @@ function highlightElement(
     classPrefix?: string | undefined;
     autoDetect?: boolean | undefined;
     maxInputLength?: number | undefined;
+    maxMatchCount?: number | undefined;
+    maxTokenCount?: number | undefined;
+    maxRenderedLength?: number | undefined;
+    maxLines?: number | undefined;
+    maxTokenDepth?: number | undefined;
   },
   force = false,
   internallyMutated?: WeakSet<Element>,
@@ -105,6 +110,9 @@ function highlightElement(
 
   const tokens = tokenize(code, grammar, {
     maxInputLength: options.maxInputLength,
+    maxMatchCount: options.maxMatchCount,
+    maxTokenCount: options.maxTokenCount,
+    maxTokenDepth: options.maxTokenDepth,
   });
   const html = renderToHTML(tokens, {
     theme: options.theme,
@@ -112,6 +120,10 @@ function highlightElement(
     classPrefix: options.classPrefix,
     wrapCode: false, // We're inside an existing <code>, don't wrap again
     wrapLines: options.lineNumbers,
+    maxTokenCount: options.maxTokenCount,
+    maxRenderedLength: options.maxRenderedLength,
+    maxLines: options.maxLines,
+    maxTokenDepth: options.maxTokenDepth,
   });
 
   internallyMutated?.add(element);
@@ -249,6 +261,11 @@ export function scan(options: ScanOptions): number {
     classPrefix = DEFAULT_CLASS_PREFIX,
     autoDetect = false,
     maxInputLength,
+    maxMatchCount,
+    maxTokenCount,
+    maxRenderedLength,
+    maxLines,
+    maxTokenDepth,
     force = false,
     onError,
   } = options;
@@ -274,6 +291,11 @@ export function scan(options: ScanOptions): number {
         classPrefix,
         autoDetect,
         maxInputLength,
+        maxMatchCount,
+        maxTokenCount,
+        maxRenderedLength,
+        maxLines,
+        maxTokenDepth,
       },
       { force, reuseStoredSource: force, onError },
     );
@@ -300,6 +322,11 @@ export function observe(options: ScanOptions): () => void {
     classPrefix = DEFAULT_CLASS_PREFIX,
     autoDetect = false,
     maxInputLength,
+    maxMatchCount,
+    maxTokenCount,
+    maxRenderedLength,
+    maxLines,
+    maxTokenDepth,
     force = false,
     onError,
   } = options;
@@ -322,6 +349,11 @@ export function observe(options: ScanOptions): () => void {
     classPrefix,
     autoDetect,
     maxInputLength,
+    maxMatchCount,
+    maxTokenCount,
+    maxRenderedLength,
+    maxLines,
+    maxTokenDepth,
   };
 
   // Initial scan
@@ -344,6 +376,7 @@ export function observe(options: ScanOptions): () => void {
   const observer = new MutationObserver((mutations) => {
     const changedHighlighted = new Set<Element>();
     const addedMatches = new Set<Element>();
+    const skippedInternalRecords = new Set<Element>();
 
     for (const mutation of mutations) {
       const target =
@@ -353,6 +386,20 @@ export function observe(options: ScanOptions): () => void {
       const highlighted = target?.closest(`[${HIGHLIGHTED_ATTR}]`);
       if (highlighted?.matches(selector)) {
         changedHighlighted.add(highlighted);
+      }
+
+      // Setting innerHTML during highlighting produces one child-list record
+      // whose target is the highlighted element. Avoid walking the generated
+      // token spans. External records batched with it are still processed.
+      if (
+        highlighted &&
+        internallyMutated.has(highlighted) &&
+        !skippedInternalRecords.has(highlighted) &&
+        mutation.type === "childList" &&
+        mutation.target === highlighted
+      ) {
+        skippedInternalRecords.add(highlighted);
+        continue;
       }
 
       for (const node of mutation.addedNodes) {

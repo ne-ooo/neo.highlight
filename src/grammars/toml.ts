@@ -9,7 +9,7 @@ export const toml: Grammar = {
       greedy: true,
     },
     table: {
-      pattern: /^\s*\[{1,2}[^\]]*\]{1,2}/m,
+      pattern: /^[^\S\r\n]*\[{1,2}[^\[\]\r\n]*\]{1,2}/m,
       alias: "selector",
       inside: {
         punctuation: /^\[{1,2}|\]{1,2}$/,
@@ -39,7 +39,7 @@ export const toml: Grammar = {
     number:
       /[+-]?(?:0x[\da-fA-F]+(?:_[\da-fA-F]+)*|0o[0-7]+(?:_[0-7]+)*|0b[01]+(?:_[01]+)*|(?:\d+(?:_\d+)*\.?\d*(?:_\d+)*|\.\d+(?:_\d+)*)(?:[eE][+-]?\d+(?:_\d+)*)?|inf|nan)\b/,
     key: {
-      pattern: /(?:^|[,{])\s*(?:"(?:\\[\s\S]|[^\\"\r\n])*"|'[^'\r\n]*'|[\w-]+)\s*(?=\s*=)/m,
+      pattern: /(?:^|[,{])[^\S\r\n]*(?:"(?:\\[\s\S]|[^\\"\r\n])*"|'[^'\r\n]*'|[\w-]+)[^\S\r\n]*(?==)/m,
       lookbehind: true,
       alias: "property",
     },

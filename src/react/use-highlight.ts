@@ -14,6 +14,16 @@ export interface UseHighlightOptions {
   wrapCode?: boolean;
   /** Maximum UTF-16 code units accepted by the tokenizer. */
   maxInputLength?: number;
+  /** Maximum regex matches examined by the tokenizer. */
+  maxMatchCount?: number;
+  /** Maximum structured token nodes created or rendered. */
+  maxTokenCount?: number;
+  /** Maximum generated HTML length in UTF-16 code units. */
+  maxRenderedLength?: number;
+  /** Maximum source lines rendered. */
+  maxLines?: number;
+  /** Maximum grammar and token-tree nesting depth. */
+  maxTokenDepth?: number;
 }
 
 export interface UseHighlightResult {
@@ -44,11 +54,28 @@ export function useHighlight(
     classPrefix = ctx.classPrefix,
     wrapCode = false,
     maxInputLength,
+    maxMatchCount,
+    maxTokenCount,
+    maxRenderedLength,
+    maxLines,
+    maxTokenDepth,
   } = options;
 
   const tokens = useMemo(
-    () => tokenize(code, language, { maxInputLength }),
-    [code, language, maxInputLength],
+    () => tokenize(code, language, {
+      maxInputLength,
+      maxMatchCount,
+      maxTokenCount,
+      maxTokenDepth,
+    }),
+    [
+      code,
+      language,
+      maxInputLength,
+      maxMatchCount,
+      maxTokenCount,
+      maxTokenDepth,
+    ],
   );
 
   const html = useMemo(
@@ -61,8 +88,25 @@ export function useHighlight(
         language: language.name,
         classPrefix,
         wrapCode,
+        maxTokenCount,
+        maxRenderedLength,
+        maxLines,
+        maxTokenDepth,
       }),
-    [tokens, theme, lineNumbers, highlightLines, diffHighlight, language.name, classPrefix, wrapCode],
+    [
+      tokens,
+      theme,
+      lineNumbers,
+      highlightLines,
+      diffHighlight,
+      language.name,
+      classPrefix,
+      wrapCode,
+      maxTokenCount,
+      maxRenderedLength,
+      maxLines,
+      maxTokenDepth,
+    ],
   );
 
   return { tokens, html };

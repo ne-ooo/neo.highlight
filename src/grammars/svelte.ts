@@ -8,7 +8,7 @@ export const svelte: Grammar = {
     ...html.tokens,
     block: {
       pattern:
-        /\{[#:/](?:if|else|each|await|then|catch|key|snippet|html|debug|const|render)\b[^}]*\}/,
+        /\{[#:/](?:if|else|each|await|then|catch|key|snippet|html|debug|const|render)\b[^{}\r\n]*\}/,
       greedy: true,
       inside: {
         punctuation: /^\{[#/:]|\}$/,

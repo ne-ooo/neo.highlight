@@ -6,7 +6,7 @@ export const wasm: Grammar = {
   tokens: {
     comment: [
       { pattern: /;;.*/, greedy: true },
-      { pattern: /\(;[\s\S]*?;\)/, greedy: true },
+      { pattern: /\(;(?:[^;(]|\((?!;)|;(?!\)))*;\)/, greedy: true },
     ],
     string: {
       pattern: /"(?:\\[\s\S]|[^\\"])*"/,

@@ -26,6 +26,16 @@ export interface HighlightProps {
   style?: React.CSSProperties;
   /** Maximum UTF-16 code units accepted by the tokenizer. */
   maxInputLength?: number;
+  /** Maximum regex matches examined by the tokenizer. */
+  maxMatchCount?: number;
+  /** Maximum structured token nodes created or rendered. */
+  maxTokenCount?: number;
+  /** Maximum generated HTML length in UTF-16 code units. */
+  maxRenderedLength?: number;
+  /** Maximum source lines rendered. */
+  maxLines?: number;
+  /** Maximum grammar and token-tree nesting depth. */
+  maxTokenDepth?: number;
 }
 
 /**
@@ -53,6 +63,11 @@ export function Highlight({
   className,
   style,
   maxInputLength,
+  maxMatchCount,
+  maxTokenCount,
+  maxRenderedLength,
+  maxLines,
+  maxTokenDepth,
 }: HighlightProps) {
   const ctx = useHighlightContext();
 
@@ -61,8 +76,20 @@ export function Highlight({
   const classPrefix = classPrefixProp ?? ctx.classPrefix;
 
   const tokens = useMemo(
-    () => tokenize(children, language, { maxInputLength }),
-    [children, language, maxInputLength],
+    () => tokenize(children, language, {
+      maxInputLength,
+      maxMatchCount,
+      maxTokenCount,
+      maxTokenDepth,
+    }),
+    [
+      children,
+      language,
+      maxInputLength,
+      maxMatchCount,
+      maxTokenCount,
+      maxTokenDepth,
+    ],
   );
 
   const html = useMemo(() => {
@@ -74,8 +101,24 @@ export function Highlight({
       language: language.name,
       classPrefix,
       wrapCode: true,
+      maxTokenCount,
+      maxRenderedLength,
+      maxLines,
+      maxTokenDepth,
     });
-  }, [tokens, language, theme, lineNumbers, highlightLines, diffHighlight, classPrefix]);
+  }, [
+    tokens,
+    language,
+    theme,
+    lineNumbers,
+    highlightLines,
+    diffHighlight,
+    classPrefix,
+    maxTokenCount,
+    maxRenderedLength,
+    maxLines,
+    maxTokenDepth,
+  ]);
 
   if (copyButton) {
     return (

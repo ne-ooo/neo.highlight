@@ -6,7 +6,7 @@ export const javascript: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     string: [
       {
@@ -19,7 +19,7 @@ export const javascript: Grammar = {
         alias: "template-string",
         inside: {
           interpolation: {
-            pattern: /\$\{[^}]*\}/,
+            pattern: /\$\{(?:(?!\$\{|})[\s\S])*\}/,
             inside: {
               punctuation: /^\$\{|\}$/,
             },

@@ -6,7 +6,7 @@ export const ruby: Grammar = {
   tokens: {
     comment: [
       {
-        pattern: /^=begin\b[\s\S]*?^=end\b/m,
+        pattern: /^=begin\b(?:(?!^=begin\b|^=end\b)[\s\S])*^=end\b/m,
         greedy: true,
       },
       {
@@ -15,7 +15,7 @@ export const ruby: Grammar = {
       },
     ],
     "triple-string": {
-      pattern: /<<[-~]?(\w+)\r?\n[\s\S]*?\r?\n\s*\1/,
+      pattern: /<<[-~]?(\w+)\r?\n(?:(?!<<[-~]?)[\s\S])*?\r?\n[^\S\r\n]*\1/,
       greedy: true,
       alias: "string",
     },
@@ -25,7 +25,7 @@ export const ruby: Grammar = {
         greedy: true,
         inside: {
           interpolation: {
-            pattern: /#\{[^}]*\}/,
+            pattern: /#\{[^{}\r\n]*\}/,
             inside: {
               punctuation: /^#\{|\}$/,
             },
@@ -33,7 +33,7 @@ export const ruby: Grammar = {
         },
       },
       {
-        pattern: /%[qQwWiIxsr]?(?:\([^)]*\)|\[[^\]]*\]|\{[^}]*\}|<[^>]*>|([^\w\s])[\s\S]*?\1)/,
+        pattern: /%[qQwWiIxsr]?(?:\([^()\r\n]*\)|\[[^\[\]\r\n]*\]|\{[^{}\r\n]*\}|<[^<>\r\n]*>|\/(?:\\[\s\S]|[^\/\\\r\n])*\/|!(?:\\[\s\S]|[^!\\\r\n])*!)/,
         greedy: true,
         alias: "string",
       },

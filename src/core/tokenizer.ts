@@ -19,7 +19,10 @@ import type {
 } from "./types";
 import { normalizeGrammarIdentifier } from "./grammar-utils";
 
-export const DEFAULT_MAX_INPUT_LENGTH = 1_000_000;
+export const DEFAULT_MAX_INPUT_LENGTH = 250_000;
+export const DEFAULT_MAX_MATCH_COUNT = 100_000;
+export const DEFAULT_MAX_TOKEN_COUNT = 100_000;
+export const DEFAULT_MAX_TOKEN_DEPTH = 100;
 
 const globalPatternCache = new WeakMap<RegExp, RegExp>();
 
@@ -36,12 +39,13 @@ export function tokenize(
   options: TokenizeOptions = {},
 ): Token[] {
   const maxInputLength = options.maxInputLength ?? DEFAULT_MAX_INPUT_LENGTH;
-  if (
-    maxInputLength !== Number.POSITIVE_INFINITY &&
-    (!Number.isInteger(maxInputLength) || maxInputLength < 0)
-  ) {
-    throw new RangeError("maxInputLength must be a non-negative integer or Infinity");
-  }
+  const maxMatchCount = options.maxMatchCount ?? DEFAULT_MAX_MATCH_COUNT;
+  const maxTokenCount = options.maxTokenCount ?? DEFAULT_MAX_TOKEN_COUNT;
+  const maxTokenDepth = options.maxTokenDepth ?? DEFAULT_MAX_TOKEN_DEPTH;
+  assertLimit(maxInputLength, "maxInputLength");
+  assertLimit(maxMatchCount, "maxMatchCount");
+  assertLimit(maxTokenCount, "maxTokenCount");
+  assertLimit(maxTokenDepth, "maxTokenDepth");
   if (code.length > maxInputLength) {
     throw new RangeError(
       `Input length ${code.length} exceeds maxInputLength ${maxInputLength}`,
@@ -49,8 +53,34 @@ export function tokenize(
   }
 
   const tokens: Token[] = [code];
-  matchGrammar(tokens, grammar.tokens, 0);
+  const context: TokenizeContext = {
+    source: code,
+    maxMatchCount,
+    maxTokenCount,
+    maxTokenDepth,
+    matchCount: 0,
+    tokenCount: 0,
+  };
+  matchGrammar(tokens, grammar.tokens, 0, context);
   return tokens;
+}
+
+interface TokenizeContext {
+  readonly source: string;
+  readonly maxMatchCount: number;
+  readonly maxTokenCount: number;
+  readonly maxTokenDepth: number;
+  matchCount: number;
+  tokenCount: number;
+}
+
+function assertLimit(value: number, name: string): void {
+  if (
+    value !== Number.POSITIVE_INFINITY &&
+    (!Number.isInteger(value) || value < 0)
+  ) {
+    throw new RangeError(`${name} must be a non-negative integer or Infinity`);
+  }
 }
 
 /**
@@ -110,15 +140,26 @@ function matchGrammar(
   tokens: Token[],
   grammarTokens: GrammarTokens,
   depth: number,
+  context: TokenizeContext,
 ): void {
-  if (depth > 100) {
-    throw new RangeError("Grammar nesting exceeds the supported depth");
+  if (depth > context.maxTokenDepth) {
+    throw new RangeError(
+      `Grammar nesting exceeds maxTokenDepth ${context.maxTokenDepth}`,
+    );
   }
 
   for (const { tokenType, patterns } of compileGrammarTokens(grammarTokens)) {
     for (const patternObj of patterns) {
       const regex = ensureGlobal(patternObj.pattern);
-      applyPattern(tokens, regex, patternObj, tokenType, depth);
+      applyPattern(
+        tokens,
+        context.source,
+        regex,
+        patternObj,
+        tokenType,
+        depth,
+        context,
+      );
     }
   }
 }
@@ -137,39 +178,13 @@ interface TokenSpan {
 
 function applyPattern(
   tokens: Token[],
+  source: string,
   regex: RegExp,
   patternObj: TokenPattern,
   tokenType: string,
   depth: number,
+  context: TokenizeContext,
 ): void {
-  const source = tokens.map(getTokenText).join("");
-  const matches: SourceMatch[] = [];
-  regex.lastIndex = 0;
-  for (let match = regex.exec(source); match; match = regex.exec(source)) {
-    const fullText = match[0];
-    if (fullText.length === 0) {
-      // RegExp execution in Unicode mode can move a lastIndex that points into
-      // a surrogate pair back to the start of that code point. Advancing from
-      // match.index with the same semantics as ECMAScript's AdvanceStringIndex
-      // guarantees forward progress for zero-width custom grammar patterns.
-      const fullUnicode =
-        regex.unicode ||
-        (regex as RegExp & { readonly unicodeSets?: boolean }).unicodeSets === true;
-      regex.lastIndex = advanceStringIndex(source, match.index, fullUnicode);
-      continue;
-    }
-
-    const lookbehindLength =
-      patternObj.lookbehind && match[1] !== undefined ? match[1].length : 0;
-    const text = fullText.slice(lookbehindLength);
-    if (text.length === 0) continue;
-
-    const start = match.index + lookbehindLength;
-    matches.push({ start, end: start + text.length, text });
-  }
-
-  if (matches.length === 0) return;
-
   const spans: TokenSpan[] = [];
   let sourceOffset = 0;
   for (const token of tokens) {
@@ -178,61 +193,99 @@ function applyPattern(
     sourceOffset = end;
   }
 
-  const accepted: SourceMatch[] = [];
+  const output: Token[] = [];
+  let emitOffset = 0;
+  let emitSpanIndex = 0;
   let spanIndex = 0;
+  let acceptedAny = false;
 
-  for (const match of matches) {
-    while (spanIndex < spans.length && spans[spanIndex]!.end <= match.start) {
+  regex.lastIndex = 0;
+  for (
+    let regexMatch = regex.exec(source);
+    regexMatch;
+    regexMatch = regex.exec(source)
+  ) {
+    const fullText = regexMatch[0];
+    context.matchCount++;
+    if (context.matchCount > context.maxMatchCount) {
+      throw new RangeError(
+        `Regex match count exceeds maxMatchCount ${context.maxMatchCount}`,
+      );
+    }
+    if (fullText.length === 0) {
+      const fullUnicode =
+        regex.unicode ||
+        (regex as RegExp & { readonly unicodeSets?: boolean }).unicodeSets === true;
+      regex.lastIndex = advanceStringIndex(source, regexMatch.index, fullUnicode);
+      continue;
+    }
+
+    const lookbehindLength =
+      patternObj.lookbehind && regexMatch[1] !== undefined
+        ? regexMatch[1].length
+        : 0;
+    const text = fullText.slice(lookbehindLength);
+    if (text.length === 0) continue;
+
+    const sourceMatch: SourceMatch = {
+      start: regexMatch.index + lookbehindLength,
+      end: regexMatch.index + fullText.length,
+      text,
+    };
+
+    while (
+      spanIndex < spans.length &&
+      spans[spanIndex]!.end <= sourceMatch.start
+    ) {
       spanIndex++;
     }
     if (spanIndex >= spans.length) break;
 
     const firstIndex = spanIndex;
     let lastIndex = firstIndex;
-    while (spans[lastIndex]!.end < match.end && lastIndex + 1 < spans.length) {
+    while (spans[lastIndex]!.end < sourceMatch.end && lastIndex + 1 < spans.length) {
       lastIndex++;
     }
-    if (spans[lastIndex]!.end < match.end) continue;
+    if (spans[lastIndex]!.end < sourceMatch.end) continue;
 
     const containedInOneToken = firstIndex === lastIndex;
     const startsInPlainText = typeof spans[firstIndex]!.token === "string";
     const canReplace = patternObj.greedy
       ? startsInPlainText || !containedInOneToken
       : containedInOneToken && startsInPlainText;
-    if (canReplace) accepted.push(match);
-  }
+    if (!canReplace) continue;
 
-  if (accepted.length === 0) return;
-
-  const output: Token[] = [];
-  let emitOffset = 0;
-  let emitSpanIndex = 0;
-
-  for (const match of accepted) {
+    acceptedAny = true;
     emitOriginalRange(
       spans,
       emitOffset,
-      match.start,
+      sourceMatch.start,
       output,
       emitSpanIndex,
     );
 
-    let content: string | Token[] = match.text;
+    let content: string | Token[] = sourceMatch.text;
     if (patternObj.inside) {
-      const innerTokens: Token[] = [match.text];
-      matchGrammar(innerTokens, patternObj.inside, depth + 1);
+      const innerTokens: Token[] = [sourceMatch.text];
+      const innerContext: TokenizeContext = {
+        ...context,
+        source: sourceMatch.text,
+      };
+      matchGrammar(innerTokens, patternObj.inside, depth + 1, innerContext);
+      context.matchCount = innerContext.matchCount;
+      context.tokenCount = innerContext.tokenCount;
       content = innerTokens;
     }
 
-    const tokenNode: TokenNode = {
-      type: tokenType,
+    appendMatchedToken(
+      output,
+      tokenType,
       content,
-      length: match.text.length,
-    };
-    if (patternObj.alias) tokenNode.alias = patternObj.alias;
-
-    appendToken(output, tokenNode);
-    emitOffset = match.end;
+      sourceMatch.text.length,
+      patternObj.alias,
+      context,
+    );
+    emitOffset = sourceMatch.end;
     while (
       emitSpanIndex < spans.length &&
       spans[emitSpanIndex]!.end <= emitOffset
@@ -240,6 +293,8 @@ function applyPattern(
       emitSpanIndex++;
     }
   }
+
+  if (!acceptedAny) return;
 
   emitOriginalRange(
     spans,
@@ -250,6 +305,55 @@ function applyPattern(
   );
   tokens.length = 0;
   for (const token of output) tokens.push(token);
+}
+
+function appendMatchedToken(
+  tokens: Token[],
+  type: string,
+  content: string | Token[],
+  length: number,
+  alias: string | string[] | undefined,
+  context: TokenizeContext,
+): void {
+  const previous = tokens[tokens.length - 1];
+  if (
+    typeof content === "string" &&
+    typeof previous !== "string" &&
+    previous !== undefined &&
+    previous.type === type &&
+    typeof previous.content === "string" &&
+    aliasesEqual(previous.alias, alias)
+  ) {
+    previous.content += content;
+    previous.length += length;
+    return;
+  }
+
+  context.tokenCount++;
+  if (context.tokenCount > context.maxTokenCount) {
+    throw new RangeError(
+      `Token count exceeds maxTokenCount ${context.maxTokenCount}`,
+    );
+  }
+
+  const tokenNode: TokenNode = { type, content, length };
+  if (alias) tokenNode.alias = alias;
+  appendToken(tokens, tokenNode);
+}
+
+function aliasesEqual(
+  left: string | string[] | undefined,
+  right: string | string[] | undefined,
+): boolean {
+  if (left === right) return true;
+  if (
+    !Array.isArray(left) ||
+    !Array.isArray(right) ||
+    left.length !== right.length
+  ) {
+    return false;
+  }
+  return left.every((value, index) => value === right[index]);
 }
 
 function advanceStringIndex(
@@ -327,8 +431,50 @@ function getTokenText(token: Token): string {
 /**
  * Get the plain text from an array of tokens.
  */
-export function getPlainText(tokens: Token[]): string {
-  return tokens.map(getTokenText).join("");
+export function getPlainText(
+  tokens: Token[],
+  options: Pick<TokenizeOptions, "maxTokenCount" | "maxTokenDepth"> = {},
+): string {
+  const maxTokenCount = options.maxTokenCount ?? DEFAULT_MAX_TOKEN_COUNT;
+  const maxTokenDepth = options.maxTokenDepth ?? DEFAULT_MAX_TOKEN_DEPTH;
+  assertLimit(maxTokenCount, "maxTokenCount");
+  assertLimit(maxTokenDepth, "maxTokenDepth");
+
+  const activeNodes = new Set<TokenNode>();
+  let tokenCount = 0;
+  const walk = (items: Token[], depth: number): string => {
+    if (depth > maxTokenDepth) {
+      throw new RangeError(
+        `Token nesting exceeds maxTokenDepth ${maxTokenDepth}`,
+      );
+    }
+    const text: string[] = [];
+    for (const item of items) {
+      if (typeof item === "string") {
+        text.push(item);
+        continue;
+      }
+      if (activeNodes.has(item)) {
+        throw new TypeError("Token tree contains a cycle");
+      }
+      tokenCount++;
+      if (tokenCount > maxTokenCount) {
+        throw new RangeError(
+          `Token count exceeds maxTokenCount ${maxTokenCount}`,
+        );
+      }
+      if (typeof item.content === "string") {
+        text.push(item.content);
+      } else {
+        activeNodes.add(item);
+        text.push(walk(item.content, depth + 1));
+        activeNodes.delete(item);
+      }
+    }
+    return text.join("");
+  };
+
+  return walk(tokens, 0);
 }
 
 /**

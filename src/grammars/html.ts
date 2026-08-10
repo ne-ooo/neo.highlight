@@ -5,11 +5,11 @@ export const html: Grammar = {
   aliases: ["htm", "xml", "svg", "mathml"],
   tokens: {
     comment: {
-      pattern: /<!--[\s\S]*?-->/,
+      pattern: /<!--(?:(?!-->|<!--)[\s\S])*-->/,
       greedy: true,
     },
     doctype: {
-      pattern: /<!DOCTYPE[\s\S]*?>/i,
+      pattern: /<!DOCTYPE(?:(?!<!DOCTYPE|>)[\s\S])*>/i,
       greedy: true,
       alias: "important",
       inside: {
@@ -19,12 +19,12 @@ export const html: Grammar = {
       },
     },
     cdata: {
-      pattern: /<!\[CDATA\[[\s\S]*?\]\]>/i,
+      pattern: /<!\[CDATA\[(?:(?!<!\[CDATA\[|\]\]>)[\s\S])*\]\]>/i,
       greedy: true,
     },
     tag: {
       pattern:
-        /<\/?(?!\d)[^\s>/=$<%]+(?:\s+(?:[^\s>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s'">=]+))?|\{\.{3}\w+\}))*\s*\/?>/,
+        /<\/?(?!\d)[^\s>/=$<%]+(?:\s+(?:[^\s>/=<]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s'"<>=]+))?|\{\.{3}\w+\}))*\s*\/?>/,
       greedy: true,
       inside: {
         tag: {
@@ -36,7 +36,7 @@ export const html: Grammar = {
         },
         "special-attr": {
           pattern:
-            /\b(?:style|class|id)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s'">=]+)/i,
+            /\b(?:style|class|id)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s'"<>=]+)/i,
           inside: {
             "attr-name": /^[^\s=]+/,
             "attr-value": {
@@ -51,7 +51,7 @@ export const html: Grammar = {
           },
         },
         "attr-value": {
-          pattern: /=\s*(?:"[^"]*"|'[^']*'|[^\s'">=]+)/,
+          pattern: /=\s*(?:"[^"]*"|'[^']*'|[^\s'"<>=]+)/,
           inside: {
             punctuation: [
               /^=/,

@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Security
+
+- Repaired adversarial regular-expression scaling in all built-in grammar families.
+- Added subprocess timeouts and scaling cases for all 55 exported grammars.
+- Added limits for input, matches, token nodes, HTML output, lines, and nesting depth.
+- Added 64 MB heap tests for dense tokens, large output, and high line counts.
+- Documented custom grammars as trusted regular-expression configuration.
+
+### Performance
+
+- Reduced tokenizer allocation by accepting matches in one pass and merging adjacent compatible tokens.
+- Prevented the DOM observer from traversing spans that it generated.
+- Made the language cache detect grammar changes and return independent result objects.
+
 ## [1.2.0] - 2026-03-30
 
 ### Added

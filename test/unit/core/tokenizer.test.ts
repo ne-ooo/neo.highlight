@@ -14,7 +14,7 @@ import { jsx } from "../../../src/grammars/jsx";
 import { vue } from "../../../src/grammars/vue";
 import { less } from "../../../src/grammars/less";
 import { csv } from "../../../src/grammars/csv";
-import type { Grammar, TokenNode } from "../../../src/core/types";
+import type { Grammar, Token, TokenNode } from "../../../src/core/types";
 
 /* -------------------------------------------------------------------------------------------------
  * Helper to flatten tokens into a simple representation for assertions
@@ -278,6 +278,44 @@ describe("tokenize", () => {
     const oversized = "x".repeat(DEFAULT_MAX_INPUT_LENGTH + 1);
 
     expect(() => tokenize(oversized, grammar)).toThrow(/exceeds/i);
+  });
+
+  it("should enforce the regex match budget", () => {
+    const grammar: Grammar = { name: "dense", tokens: { punctuation: /./ } };
+    expect(() =>
+      tokenize("abcdefgh", grammar, { maxMatchCount: 4 }),
+    ).toThrow(/maxMatchCount/i);
+  });
+
+  it("should enforce the structured token budget", () => {
+    const grammar: Grammar = {
+      name: "alternating",
+      tokens: { first: /a/g, second: /b/g },
+    };
+    expect(() =>
+      tokenize("abababab", grammar, {
+        maxMatchCount: Infinity,
+        maxTokenCount: 4,
+      }),
+    ).toThrow(/maxTokenCount/i);
+  });
+
+  it("should coalesce adjacent compatible token nodes", () => {
+    const grammar: Grammar = { name: "dense", tokens: { punctuation: /./ } };
+    const tokens = tokenize("abcdefgh", grammar);
+    expect(tokens).toEqual([
+      { type: "punctuation", content: "abcdefgh", length: 8 },
+    ]);
+  });
+
+  it("should reject cyclic public token trees when extracting text", () => {
+    const node: TokenNode = {
+      type: "cycle",
+      content: [],
+      length: 0,
+    };
+    (node.content as Token[]).push(node);
+    expect(() => getPlainText([node])).toThrow(/cycle/i);
   });
 
   it(

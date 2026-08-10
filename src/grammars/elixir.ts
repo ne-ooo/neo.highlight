@@ -21,7 +21,7 @@ export const elixir: Grammar = {
         greedy: true,
         inside: {
           interpolation: {
-            pattern: /#\{[^}]*\}/,
+            pattern: /#\{[^{}\r\n]*\}/,
             inside: {
               punctuation: /^#\{|\}$/,
             },

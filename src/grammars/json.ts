@@ -6,10 +6,10 @@ export const json: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     property: {
-      pattern: /(^|[,{\[])\s*"(?:\\[\s\S]|[^\\"])*"(?=\s*:)/m,
+      pattern: /(^|[,{\[])[^\S\r\n]*"(?:\\[\s\S]|[^\\"])*"(?=[^\S\r\n]*:)/m,
       lookbehind: true,
       greedy: true,
     },

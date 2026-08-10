@@ -7,12 +7,12 @@ export const scss: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     ...css.tokens,
     variable: /\$[\w-]+|--[\w-]+/,
     interpolation: {
-      pattern: /#\{[^}]+\}/,
+      pattern: /#\{[^{}\r\n]+\}/,
       inside: {
         punctuation: /^#\{|\}$/,
         variable: /\$[\w-]+/,

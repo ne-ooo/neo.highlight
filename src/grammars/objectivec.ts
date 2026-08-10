@@ -28,7 +28,7 @@ export const objectivec: Grammar = {
       lookbehind: true,
     },
     "message-expression": {
-      pattern: /\[[\s\S]*?\]/,
+      pattern: /\[(?:(?!\[|\])[\s\S])*\]/,
       inside: {
         punctuation: /[[\]]/,
       },

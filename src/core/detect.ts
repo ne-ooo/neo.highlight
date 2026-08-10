@@ -15,11 +15,16 @@
  * -----------------------------------------------------------------------------------------------*/
 
 import type { DetectOptions, DetectResult, Grammar, Token, TokenNode } from "./types";
-import { tokenize } from "./tokenizer";
+import {
+  DEFAULT_MAX_TOKEN_COUNT,
+  DEFAULT_MAX_TOKEN_DEPTH,
+  tokenize,
+} from "./tokenizer";
 
 const DEFAULT_MAX_LENGTH = 2000;
 const DEFAULT_MIN_SCORE = 0.15;
 const CACHE_MAX_SIZE = 100;
+const CACHE_MAX_SAMPLE_LENGTH = 10_000;
 
 type WeightedPattern = readonly [pattern: RegExp, weight: number];
 
@@ -328,8 +333,6 @@ const HIGH_VALUE_TYPES = new Set([
 
 /** LRU cache: key → DetectResult | null */
 const detectCache = new Map<string, DetectResult | null>();
-const grammarIds = new WeakMap<Grammar, number>();
-let nextGrammarId = 1;
 
 /**
  * Clear the detection cache.
@@ -354,16 +357,27 @@ export function scoreTokenization(tokens: Token[], codeLength: number): number {
   let highValueCount = 0;
   let totalTokenNodes = 0;
 
-  for (const token of tokens) {
-    if (typeof token !== "string") matchedLength += token.length;
-  }
-
-  const walk = (tokenList: Token[]): void => {
+  const activeNodes = new Set<TokenNode>();
+  const walk = (tokenList: Token[], depth: number): void => {
+    if (depth > DEFAULT_MAX_TOKEN_DEPTH) {
+      throw new RangeError(
+        `Token nesting exceeds maxTokenDepth ${DEFAULT_MAX_TOKEN_DEPTH}`,
+      );
+    }
     for (const token of tokenList) {
       if (typeof token === "string") continue;
 
       const node = token as TokenNode;
+      if (activeNodes.has(node)) {
+        throw new TypeError("Token tree contains a cycle");
+      }
       totalTokenNodes++;
+      if (totalTokenNodes > DEFAULT_MAX_TOKEN_COUNT) {
+        throw new RangeError(
+          `Token count exceeds maxTokenCount ${DEFAULT_MAX_TOKEN_COUNT}`,
+        );
+      }
+      if (depth === 0) matchedLength += node.length;
       tokenTypes.add(node.type);
 
       if (node.type === "keyword") {
@@ -374,12 +388,14 @@ export function scoreTokenization(tokens: Token[], codeLength: number): number {
 
       // Walk nested tokens
       if (Array.isArray(node.content)) {
-        walk(node.content);
+        activeNodes.add(node);
+        walk(node.content, depth + 1);
+        activeNodes.delete(node);
       }
     }
   };
 
-  walk(tokens);
+  walk(tokens, 0);
 
   if (totalTokenNodes === 0) return 0;
 
@@ -433,13 +449,15 @@ export function detectLanguage(
   // Truncate for performance
   const sample = code.length > maxLength ? code.slice(0, maxLength) : code;
 
-  // Cache lookup
-  const cacheKey = createCacheKey(sample, grammars, maxLength, minScore);
-  if (!noCache && detectCache.has(cacheKey)) {
+  const useCache = !noCache && sample.length <= CACHE_MAX_SAMPLE_LENGTH;
+  const cacheKey = useCache
+    ? createCacheKey(sample, grammars, maxLength, minScore)
+    : undefined;
+  if (cacheKey !== undefined && detectCache.has(cacheKey)) {
     const cached = detectCache.get(cacheKey) ?? null;
     detectCache.delete(cacheKey);
     detectCache.set(cacheKey, cached);
-    return cached ?? undefined;
+    return cached ? cloneDetectResult(cached) : undefined;
   }
 
   // Score each grammar
@@ -457,7 +475,7 @@ export function detectLanguage(
 
   const best = candidates[0];
   if (!best || best.score < minScore) {
-    if (!noCache) {
+    if (cacheKey !== undefined) {
       evictIfNeeded();
       detectCache.set(cacheKey, null);
     }
@@ -470,9 +488,9 @@ export function detectLanguage(
     candidates,
   };
 
-  if (!noCache) {
+  if (cacheKey !== undefined) {
     evictIfNeeded();
-    detectCache.set(cacheKey, result);
+    detectCache.set(cacheKey, cloneDetectResult(result));
   }
 
   return result;
@@ -510,18 +528,74 @@ function createCacheKey(
   maxLength: number,
   minScore: number,
 ): string {
-  const grammarKey = grammars
-    .map((grammar) => {
-      let id = grammarIds.get(grammar);
-      if (id === undefined) {
-        id = nextGrammarId++;
-        grammarIds.set(grammar, id);
-      }
-      return id;
-    })
-    .join(",");
+  const grammarKey = grammars.map(fingerprintGrammar).join(";");
 
   return `${maxLength}:${minScore}:${grammarKey}:${sample}`;
+}
+
+function cloneDetectResult(result: DetectResult): DetectResult {
+  return {
+    grammar: result.grammar,
+    score: result.score,
+    candidates: result.candidates.map((candidate) => ({ ...candidate })),
+  };
+}
+
+/**
+ * Include mutable grammar structure in cache keys. Length-prefixed fields make
+ * the serialization unambiguous without retaining grammar objects globally.
+ */
+function fingerprintGrammar(grammar: Grammar): string {
+  const parts: string[] = [];
+  const seen = new WeakMap<object, number>();
+  let nextId = 0;
+  const add = (value: string): void => {
+    parts.push(`${value.length}:${value}`);
+  };
+  const visit = (value: unknown, depth: number): void => {
+    if (depth > DEFAULT_MAX_TOKEN_DEPTH) {
+      throw new RangeError(
+        `Grammar nesting exceeds maxTokenDepth ${DEFAULT_MAX_TOKEN_DEPTH}`,
+      );
+    }
+    if (value === undefined) {
+      add("undefined");
+      return;
+    }
+    if (typeof value === "string" || typeof value === "boolean") {
+      add(`${typeof value}:${String(value)}`);
+      return;
+    }
+    if (value instanceof RegExp) {
+      add(`regexp:${value.source}/${value.flags}`);
+      return;
+    }
+    if (typeof value !== "object" || value === null) {
+      add(`${typeof value}:${String(value)}`);
+      return;
+    }
+
+    const existingId = seen.get(value);
+    if (existingId !== undefined) {
+      add(`ref:${existingId}`);
+      return;
+    }
+    const id = nextId++;
+    seen.set(value, id);
+    add(`${Array.isArray(value) ? "array" : "object"}:${id}`);
+
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item, depth + 1);
+      return;
+    }
+    for (const key of Object.keys(value)) {
+      add(key);
+      visit((value as Record<string, unknown>)[key], depth + 1);
+    }
+  };
+
+  visit(grammar, 0);
+  return parts.join("");
 }
 
 /**

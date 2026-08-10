@@ -6,7 +6,7 @@ export const java: Grammar = {
   tokens: {
     comment: [
       {
-        pattern: /\/\*\*[\s\S]*?\*\//,
+        pattern: /\/\*\*(?:(?!\/\*\*|\*\/)[\s\S])*\*\//,
         greedy: true,
         alias: "comment",
         inside: {
@@ -17,7 +17,7 @@ export const java: Grammar = {
         },
       },
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*[\s\S]*?\*\//, greedy: true },
+      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
     ],
     string: [
       {

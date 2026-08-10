@@ -8,7 +8,7 @@ export const ini: Grammar = {
       { pattern: /[;#].*/, greedy: true },
     ],
     section: {
-      pattern: /^\s*\[[^\]]*\]/m,
+      pattern: /^[^\S\r\n]*\[[^\[\]\r\n]*\]/m,
       alias: "selector",
       inside: {
         punctuation: /^\[|\]$/,
