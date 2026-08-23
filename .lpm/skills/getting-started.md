@@ -54,7 +54,7 @@ function CodeBlock({ code }: { code: string }) {
 
 ### `<AutoHighlight>` — Auto-Scan Container
 
-**Security:** Sanitize untrusted HTML before you pass it to `dangerouslySetInnerHTML`. `<AutoHighlight>` does not sanitize its children.
+**Security:** Sanitize untrusted HTML first. `<AutoHighlight>` does not sanitize its children.
 
 ```tsx
 import { AutoHighlight } from "@lpm.dev/neo.highlight/react";
