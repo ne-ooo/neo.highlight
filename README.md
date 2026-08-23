@@ -134,6 +134,8 @@ import { dracula } from "@lpm.dev/neo.highlight/themes/dracula";
 
 Scans its children for `<code>` elements and highlights them automatically. Uses `MutationObserver` to watch for dynamically added content.
 
+**Security:** Sanitize untrusted HTML before you pass it to `dangerouslySetInnerHTML`. `<AutoHighlight>` does not sanitize its children.
+
 ```tsx
 import { AutoHighlight } from "@lpm.dev/neo.highlight/react";
 import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
@@ -141,7 +143,7 @@ import { python } from "@lpm.dev/neo.highlight/grammars/python";
 import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
 
 <AutoHighlight languages={[javascript, python]} theme={githubDark}>
-  <article dangerouslySetInnerHTML={{ __html: markdownHtml }} />
+  <article dangerouslySetInnerHTML={{ __html: sanitizedMarkdownHtml }} />
 </AutoHighlight>;
 ```
 
@@ -199,7 +201,7 @@ function App() {
       <Highlight language={javascript}>{`const x = 42;`}</Highlight>
 
       <AutoHighlight>
-        <div dangerouslySetInnerHTML={{ __html: blogContent }} />
+        <div dangerouslySetInnerHTML={{ __html: sanitizedBlogContent }} />
       </AutoHighlight>
     </HighlightProvider>
   );

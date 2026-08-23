@@ -54,6 +54,8 @@ function CodeBlock({ code }: { code: string }) {
 
 ### `<AutoHighlight>` — Auto-Scan Container
 
+**Security:** Sanitize untrusted HTML first. `<AutoHighlight>` does not sanitize its children.
+
 ```tsx
 import { AutoHighlight } from "@lpm.dev/neo.highlight/react";
 import {
@@ -69,7 +71,7 @@ import {
   autoDetect
   lineNumbers
 >
-  <article dangerouslySetInnerHTML={{ __html: markdownHtml }} />
+  <article dangerouslySetInnerHTML={{ __html: sanitizedMarkdownHtml }} />
 </AutoHighlight>;
 ```
 

@@ -34,10 +34,13 @@ export interface AutoHighlightProps {
  * Auto-scan component that highlights all `<code>` elements within its children.
  * Uses MutationObserver to watch for dynamically added content.
  *
+ * Security: Sanitize untrusted HTML before you pass it to
+ * `dangerouslySetInnerHTML`. `AutoHighlight` does not sanitize its children.
+ *
  * Usage:
  * ```tsx
  * <AutoHighlight languages={[javascript, python]} theme="github-dark">
- *   <article dangerouslySetInnerHTML={{ __html: markdownHtml }} />
+ *   <article dangerouslySetInnerHTML={{ __html: sanitizedMarkdownHtml }} />
  * </AutoHighlight>
  * ```
  */
