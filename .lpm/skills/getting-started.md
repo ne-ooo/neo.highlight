@@ -1,7 +1,7 @@
 ---
 name: getting-started
 description: Use neo.highlight with React, vanilla JavaScript, the core API, built-in grammars, themes, SSR, and line highlighting
-version: "1.2.0"
+version: "1.3.0"
 globs:
   - "**/*.ts"
   - "**/*.tsx"

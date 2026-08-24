@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-24
+
 ### Security
 
 - Repaired adversarial regular-expression scaling in all built-in grammar families.

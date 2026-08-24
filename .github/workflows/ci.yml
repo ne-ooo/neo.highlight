@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  LPM_VERSION: "0.73.0"
+  LPM_VERSION: "0.75.0"
 
 jobs:
   verify:
@@ -47,7 +47,7 @@ jobs:
 
       - name: Install the locked dependencies
         run: >-
-          lpm ci --no-skills --no-editor-setup --no-security-summary
+          lpm ci --strict-integrity --no-skills --no-editor-setup --no-security-summary
           ${{ matrix.install_args }}
 
       - name: Make sure that the lockfile is unchanged
@@ -86,7 +86,7 @@ jobs:
         run: npm install --global "@lpm-registry/cli@${LPM_VERSION}"
 
       - name: Install the locked dependencies
-        run: lpm ci --no-skills --no-editor-setup --no-security-summary
+        run: lpm ci --strict-integrity --no-skills --no-editor-setup --no-security-summary
 
       - name: Audit the dependencies
         run: lpm run security:audit

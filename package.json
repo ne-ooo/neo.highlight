@@ -1,6 +1,6 @@
 {
   "name": "@lpm.dev/neo.highlight",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Zero-dependency syntax highlighter - Fast, modern, tree-shakeable with React adapter and auto-scan support",
   "type": "module",
   "author": "neo",
