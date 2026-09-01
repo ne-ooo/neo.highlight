@@ -224,6 +224,37 @@ describe("tokenize", () => {
     expect(flat).toContainEqual({ type: "string", content: "'world'" });
   });
 
+  it.each([
+    [
+      "out-of-order",
+      [
+        { index: 2, text: "c" },
+        { index: 0, text: "a" },
+      ],
+    ],
+    [
+      "overlapping",
+      [
+        { index: 0, text: "ab" },
+        { index: 1, text: "bc" },
+      ],
+    ],
+  ])("rejects %s custom matcher spans", (_name, matches) => {
+    const grammar: Grammar = {
+      name: "invalid-custom-matcher",
+      tokens: {
+        custom: {
+          pattern: /./,
+          matcher: () => matches,
+        },
+      },
+    };
+
+    expect(() => tokenize("abc", grammar)).toThrow(
+      "Custom token matcher returned an invalid source span",
+    );
+  });
+
   it("should handle empty input", () => {
     const result = tokenize("", javascript);
     expect(result).toEqual([""]);

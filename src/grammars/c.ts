@@ -1,4 +1,5 @@
 import type { Grammar } from "../core/types";
+import { createNonNestingDelimitedPattern } from "../core/grammar-utils";
 
 export const c: Grammar = {
   name: "c",
@@ -6,7 +7,7 @@ export const c: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
+      { pattern: createNonNestingDelimitedPattern("/*", "*/"), greedy: true },
     ],
     string: [
       {
@@ -39,7 +40,7 @@ export const c: Grammar = {
           greedy: true,
         },
         comment: {
-          pattern: /\/\/.*|\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//,
+          pattern: /\/\/.*|\/\*(?:[\s\S]*?\*\/|[\s\S]*(?![\s\S]))/,
           greedy: true,
         },
         punctuation: /[()\\,]/,
@@ -53,7 +54,7 @@ export const c: Grammar = {
     keyword:
       /\b(?:auto|break|case|char|const|continue|default|do|double|else|enum|extern|float|for|goto|if|inline|int|long|register|restrict|return|short|signed|sizeof|static|struct|switch|typedef|union|unsigned|void|volatile|while|_Alignas|_Alignof|_Atomic|_Bool|_Complex|_Generic|_Imaginary|_Noreturn|_Static_assert|_Thread_local)\b/,
     builtin:
-      /\b(?:NULL|EOF|stdin|stdout|stderr|size_t|ptrdiff_t|intptr_t|uintptr_t|int8_t|int16_t|int32_t|int64_t|uint8_t|uint16_t|uint32_t|uint64_t|bool|true|false|printf|fprintf|sprintf|snprintf|scanf|fscanf|sscanf|malloc|calloc|realloc|free|memcpy|memmove|memset|memcmp|strlen|strcpy|strncpy|strcat|strncat|strcmp|strncmp|strstr|strchr|strrchr|fopen|fclose|fread|fwrite|fgets|fputs|fseek|ftell|rewind|feof|ferror|perror|exit|abort|atexit|atoi|atof|atol|strtol|strtoul|strtod|qsort|bsearch|abs|labs|rand|srand|time|clock|assert)\b/,
+      /\b(?:NULL|EOF|stdin|stdout|stderr|size_t|ptrdiff_t|intptr_t|uintptr_t|int8_t|int16_t|int32_t|int64_t|uint8_t|uint16_t|uint32_t|uint64_t|bool|printf|fprintf|sprintf|snprintf|scanf|fscanf|sscanf|malloc|calloc|realloc|free|memcpy|memmove|memset|memcmp|strlen|strcpy|strncpy|strcat|strncat|strcmp|strncmp|strstr|strchr|strrchr|fopen|fclose|fread|fwrite|fgets|fputs|fseek|ftell|rewind|feof|ferror|perror|exit|abort|atexit|atoi|atof|atol|strtol|strtoul|strtod|qsort|bsearch|abs|labs|rand|srand|time|clock|assert)\b/,
     boolean: /\b(?:true|false)\b/,
     number:
       /\b(?:0[xX][\da-fA-F]+(?:u?ll?|ll?u?|[uU])?|0[bB][01]+(?:u?ll?|ll?u?|[uU])?|0[0-7]+(?:u?ll?|ll?u?|[uU])?|\d+(?:\.\d*)?(?:[eE][+-]?\d+)?(?:[fFlL]|u?ll?|ll?u?|[uU])?|\.\d+(?:[eE][+-]?\d+)?[fFlL]?)\b/,

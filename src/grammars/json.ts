@@ -1,4 +1,5 @@
 import type { Grammar } from "../core/types";
+import { createNonNestingDelimitedPattern } from "../core/grammar-utils";
 
 export const json: Grammar = {
   name: "json",
@@ -6,7 +7,7 @@ export const json: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
+      { pattern: createNonNestingDelimitedPattern("/*", "*/"), greedy: true },
     ],
     property: {
       pattern: /(^|[,{\[])[^\S\r\n]*"(?:\\[\s\S]|[^\\"])*"(?=[^\S\r\n]*:)/m,

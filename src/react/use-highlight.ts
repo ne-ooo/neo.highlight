@@ -3,6 +3,10 @@ import type { DiffHighlight, Grammar, RenderOptions, Token } from "../core/types
 import { tokenize } from "../core/tokenizer";
 import { renderToHTML } from "../core/renderer";
 import { useHighlightContext } from "./context";
+import {
+  useShallowStableArray,
+  useStableDiffHighlight,
+} from "./stable-options";
 
 export interface UseHighlightOptions {
   theme?: RenderOptions["theme"];
@@ -60,6 +64,8 @@ export function useHighlight(
     maxLines,
     maxTokenDepth,
   } = options;
+  const stableHighlightLines = useShallowStableArray(highlightLines);
+  const stableDiffHighlight = useStableDiffHighlight(diffHighlight);
 
   const tokens = useMemo(
     () => tokenize(code, language, {
@@ -83,8 +89,8 @@ export function useHighlight(
       renderToHTML(tokens, {
         theme,
         lineNumbers,
-        highlightLines,
-        diffHighlight,
+        highlightLines: stableHighlightLines,
+        diffHighlight: stableDiffHighlight,
         language: language.name,
         classPrefix,
         wrapCode,
@@ -97,8 +103,8 @@ export function useHighlight(
       tokens,
       theme,
       lineNumbers,
-      highlightLines,
-      diffHighlight,
+      stableHighlightLines,
+      stableDiffHighlight,
       language.name,
       classPrefix,
       wrapCode,

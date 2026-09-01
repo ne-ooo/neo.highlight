@@ -1,4 +1,5 @@
 import type { Grammar } from "../core/types";
+import { createNestedCommentPattern } from "../core/grammar-utils";
 
 export const dart: Grammar = {
   name: "dart",
@@ -7,7 +8,7 @@ export const dart: Grammar = {
     comment: [
       { pattern: /\/\/\/.*/, greedy: true, alias: "doc-comment" },
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
+      { pattern: createNestedCommentPattern("/*", "*/"), greedy: true },
     ],
     string: [
       {
@@ -15,7 +16,11 @@ export const dart: Grammar = {
         greedy: true,
       },
       {
-        pattern: /r?(["'])(?:\\[\s\S]|(?!\1)[^\\])*\1/,
+        pattern: /r(["'])(?:(?!\1)[^\r\n])*\1/,
+        greedy: true,
+      },
+      {
+        pattern: /(?<![r\\])(["'])(?:\\[\s\S]|(?!\1)[^\\])*\1/,
         greedy: true,
         inside: {
           interpolation: {

@@ -15,10 +15,11 @@ export type { ScanOptions };
  * ```ts
  * import { autoHighlight } from '@lpm.dev/neo.highlight/vanilla'
  * import { javascript } from '@lpm.dev/neo.highlight/grammars/javascript'
+ * import { githubDark } from '@lpm.dev/neo.highlight/themes/github-dark'
  *
  * const cleanup = autoHighlight({
  *   languages: [javascript],
- *   theme: 'github-dark',
+ *   theme: githubDark,
  *   observe: true,
  * })
  *

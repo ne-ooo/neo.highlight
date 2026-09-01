@@ -70,6 +70,37 @@ describe("contrast utilities", () => {
       expect(ratio).toBeGreaterThan(3);
       expect(ratio).toBeLessThan(6);
     });
+
+    it("supports safe CSS named and functional colors", () => {
+      expect(contrastRatio("black", "rgb(255, 255, 255)")).toBe(21);
+      expect(contrastRatio("yellowgreen", "#9acd32")).toBe(1);
+      expect(contrastRatio("hsl(0 0% 0%)", "hwb(0 100% 0%)")).toBe(21);
+      expect(contrastRatio("lab(0% 0 0)", "lab(100% 0 0)"))
+        .toBeGreaterThan(20.9);
+      expect(contrastRatio("oklab(0 0 0)", "oklch(1 0 0)"))
+        .toBeGreaterThan(20.9);
+      expect(contrastRatio("lch(50% 50% 40)", "white")).not.toBeCloseTo(
+        contrastRatio("lch(50% 50 40)", "white"),
+        3,
+      );
+    });
+
+    it("composites translucent foreground colors over the background", () => {
+      expect(contrastRatio("transparent", "black")).toBe(1);
+      expect(contrastRatio("rgba(0, 0, 0, 0.5)", "black")).toBe(1);
+      expect(contrastRatio("rgba(255, 255, 255, 0.5)", "black"))
+        .toBeCloseTo(5.28, 1);
+    });
+
+    it.each([
+      "rgb(255deg 0 0)",
+      "rgb(255, 0 0)",
+      "hsl(0, 100% 50%)",
+    ])("rejects invalid functional color syntax %s", (color) => {
+      expect(() => contrastRatio(color, "white")).toThrow(
+        /unsupported CSS color/i,
+      );
+    });
   });
 
   describe("meetsWCAG_AA", () => {
@@ -131,6 +162,31 @@ describe("contrast utilities", () => {
       const strict = validateThemeContrast(githubDark, 7);
       // AAA requires 7:1, some tokens may fail
       expect(strict.results.length).toBeGreaterThan(0);
+    });
+
+    it.each([-1, 0, 22, Number.NaN, Number.POSITIVE_INFINITY])(
+      "rejects invalid minRatio %s",
+      (minRatio) => {
+        expect(() => validateThemeContrast(githubDark, minRatio)).toThrow(
+          /minRatio/i,
+        );
+      },
+    );
+
+    it("validates custom themes that use safe CSS color syntax", () => {
+      const report = validateThemeContrast({
+        name: "css-colors",
+        background: "black",
+        foreground: "white",
+        tokenColors: {
+          keyword: "rgb(255, 255, 255)",
+          string: "hsl(0 0% 100%)",
+          variable: "currentcolor",
+        },
+      });
+
+      expect(report.passed).toBe(true);
+      expect(report.results.every((result) => result.pass)).toBe(true);
     });
   });
 

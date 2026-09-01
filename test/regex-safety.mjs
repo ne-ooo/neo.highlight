@@ -13,6 +13,11 @@ const cases = [
   ["clojure", "("],
   ["cpp", 'R"x('],
   ["csharp", "["],
+  [
+    "csharp",
+    "$".repeat(9) + '"'.repeat(256) + "X",
+    "csharp raw delimiter",
+  ],
   ["csharp", '/// <a x="v" ', "csharp doc tag"],
   ["csharp", "List<A>", "csharp generic"],
   ["css", "a "],
@@ -71,6 +76,10 @@ const cases = [
   ["sql", "/*a"],
   ["svelte", "{#if a"],
   ["swift", "\\("],
+  ["swift", '#"x', "swift extended string"],
+  ["swift", '########"x', "swift 8-hash string"],
+  ["swift", '########"""x', "swift 8-hash multiline string"],
+  ["swift", '#########"x', "swift extended-string fallback"],
   ["swift", "/*a", "swift comment"],
   ["terraform", "<<A\nx\n"],
   ["terraform", "$" + "{a", "terraform interpolation"],
@@ -169,6 +178,90 @@ const zeroWidthSource = `
     if (getPlainText(tokens) !== code) throw new Error("Tokenization changed the input");
   }
 `;
+
+const csharpRawDelimiterSource = `
+  import { performance } from "node:perf_hooks";
+  import { tokenize } from "./dist/index.js";
+  import { csharp } from "./dist/grammars/csharp.js";
+  const cases = [
+    "$".repeat(9) + '"'.repeat(256) + "X".repeat(120_000),
+    Array.from({ length: 440 }, (_, index) =>
+      '"'.repeat(10 + index * 2) + "x"
+    ).join(""),
+  ];
+  for (const code of cases) {
+    const start = performance.now();
+    tokenize(code, csharp, { maxInputLength: code.length });
+    const elapsed = performance.now() - start;
+    if (elapsed > ${MAX_LARGE_RUN_MS}) {
+      throw new Error(\`C# raw delimiter took \${elapsed.toFixed(1)}ms\`);
+    }
+  }
+`;
+const csharpRawDelimiterResult = spawnSync(
+  process.execPath,
+  ["--input-type=module", "--eval", csharpRawDelimiterSource],
+  {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    timeout: TIMEOUT_MS,
+  },
+);
+assert.equal(
+  csharpRawDelimiterResult.error?.code,
+  undefined,
+  `C# raw delimiter exceeded the ${TIMEOUT_MS}ms subprocess timeout`,
+);
+assert.equal(
+  csharpRawDelimiterResult.status,
+  0,
+  `C# raw delimiter failed:\n${csharpRawDelimiterResult.stderr || csharpRawDelimiterResult.stdout}`,
+);
+
+const rubyLexicalScannerSource = `
+  import { performance } from "node:perf_hooks";
+  import { tokenize } from "./dist/index.js";
+  import { ruby } from "./dist/grammars/ruby.js";
+  const cases = [
+    "% (".replace(" ", "").repeat(120_000),
+    "<<A ".repeat(62_499) + "\\nA\\n",
+    "<< ".repeat(80_000) + "\\n",
+    "a/b;".repeat(62_500),
+    "x do\\n".repeat(19_000) + "foo /x/\\n".repeat(19_000),
+  ];
+  for (const code of cases) {
+    const start = performance.now();
+    tokenize(code, ruby, {
+      maxInputLength: code.length,
+      maxMatchCount: Infinity,
+      maxTokenCount: Infinity,
+    });
+    const elapsed = performance.now() - start;
+    if (elapsed > ${MAX_LARGE_RUN_MS}) {
+      throw new Error(\`Ruby lexical scanner took \${elapsed.toFixed(1)}ms\`);
+    }
+  }
+`;
+const rubyLexicalScannerResult = spawnSync(
+  process.execPath,
+  ["--input-type=module", "--eval", rubyLexicalScannerSource],
+  {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    timeout: TIMEOUT_MS,
+  },
+);
+assert.equal(
+  rubyLexicalScannerResult.error?.code,
+  undefined,
+  `Ruby lexical scanner exceeded the ${TIMEOUT_MS}ms subprocess timeout`,
+);
+assert.equal(
+  rubyLexicalScannerResult.status,
+  0,
+  `Ruby lexical scanner failed:\n${rubyLexicalScannerResult.stderr || rubyLexicalScannerResult.stdout}`,
+);
+
 const zeroWidthResult = spawnSync(
   process.execPath,
   ["--input-type=module", "--eval", zeroWidthSource],

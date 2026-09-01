@@ -4,14 +4,14 @@ export const prisma: Grammar = {
   name: "prisma",
   aliases: [],
   tokens: {
-    comment: [
-      { pattern: /\/\/.*/, greedy: true },
-    ],
     "triple-comment": {
       pattern: /\/\/\/.*/,
       greedy: true,
       alias: "doc-comment",
     },
+    comment: [
+      { pattern: /\/\/.*/, greedy: true },
+    ],
     string: {
       pattern: /"(?:\\[\s\S]|[^\\"])*"/,
       greedy: true,

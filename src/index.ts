@@ -35,6 +35,7 @@ export type {
   Token,
   TokenNode,
   TokenPattern,
+  TokenPatternMatch,
   TokenDefinition,
   Grammar,
   GrammarTokens,
@@ -49,3 +50,4 @@ export type {
   DiffHighlight,
 } from "./core/types";
 export type { ContrastResult, ThemeContrastReport } from "./core/contrast";
+export type { CopyButtonOptions } from "./core/copy-button";

@@ -5,11 +5,17 @@ export const lua: Grammar = {
   aliases: [],
   tokens: {
     comment: [
-      { pattern: /--\[\[(?:(?!--\[\[|\]\])[\s\S])*\]\]/, greedy: true },
+      {
+        pattern: /--\[(=*)\[(?:[\s\S]*?\]\1\]|[\s\S]*(?![\s\S]))/,
+        greedy: true,
+      },
       { pattern: /--.*/, greedy: true },
     ],
     string: [
-      { pattern: /\[\[(?:(?!\[\[|\]\])[\s\S])*\]\]/, greedy: true },
+      {
+        pattern: /\[(=*)\[(?:[\s\S]*?\]\1\]|[\s\S]*(?![\s\S]))/,
+        greedy: true,
+      },
       {
         pattern: /(["'])(?:\\[\s\S]|(?!\1)[^\\])*\1/,
         greedy: true,

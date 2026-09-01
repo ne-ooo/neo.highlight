@@ -5,7 +5,8 @@ export const yaml: Grammar = {
   aliases: ["yml"],
   tokens: {
     comment: {
-      pattern: /#.*/,
+      pattern: /(^|[ \t])#.*/m,
+      lookbehind: true,
       greedy: true,
     },
     directive: {

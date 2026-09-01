@@ -24,8 +24,43 @@ const CSS_NAMED_COLORS = new Set(
   turquoise violet wheat white whitesmoke yellow yellowgreen currentcolor`
     .split(/\s+/),
 );
-const CSS_COLOR_FUNCTION =
-  /^(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\(\s*[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:%|deg|grad|rad|turn)?(?:\s*(?:,|\/)\s*|\s+)[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:%|deg|grad|rad|turn)?(?:\s*(?:,|\/)\s*|\s+)[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:%|deg|grad|rad|turn)?(?:(?:\s*(?:,|\/)\s*|\s+)[-+]?(?:\d+(?:\.\d+)?|\.\d+)%?)?\s*\)$/i;
+const NUMBER = String.raw`[-+]?(?:\d+(?:\.\d+)?|\.\d+)`;
+const NUMBER_OR_PERCENTAGE = `${NUMBER}%?`;
+const PERCENTAGE = `${NUMBER}%`;
+const HUE = `${NUMBER}(?:deg|grad|rad|turn)?`;
+const ALPHA = NUMBER_OR_PERCENTAGE;
+const CSS_COLOR_FUNCTIONS = [
+  // Modern RGB syntax permits mixed number/percentage channels.
+  new RegExp(
+    `^rgba?\\(\\s*${NUMBER_OR_PERCENTAGE}\\s+${NUMBER_OR_PERCENTAGE}\\s+${NUMBER_OR_PERCENTAGE}(?:\\s*\\/\\s*${ALPHA})?\\s*\\)$`,
+    "i",
+  ),
+  // Legacy RGB syntax requires three channels of the same type.
+  new RegExp(
+    `^rgba?\\(\\s*(?:${NUMBER}\\s*,\\s*${NUMBER}\\s*,\\s*${NUMBER}|${PERCENTAGE}\\s*,\\s*${PERCENTAGE}\\s*,\\s*${PERCENTAGE})(?:\\s*,\\s*${ALPHA})?\\s*\\)$`,
+    "i",
+  ),
+  new RegExp(
+    `^hsla?\\(\\s*${HUE}\\s+${PERCENTAGE}\\s+${PERCENTAGE}(?:\\s*\\/\\s*${ALPHA})?\\s*\\)$`,
+    "i",
+  ),
+  new RegExp(
+    `^hsla?\\(\\s*${HUE}\\s*,\\s*${PERCENTAGE}\\s*,\\s*${PERCENTAGE}(?:\\s*,\\s*${ALPHA})?\\s*\\)$`,
+    "i",
+  ),
+  new RegExp(
+    `^hwb\\(\\s*${HUE}\\s+${PERCENTAGE}\\s+${PERCENTAGE}(?:\\s*\\/\\s*${ALPHA})?\\s*\\)$`,
+    "i",
+  ),
+  new RegExp(
+    `^(?:lab|oklab)\\(\\s*${NUMBER_OR_PERCENTAGE}\\s+${NUMBER_OR_PERCENTAGE}\\s+${NUMBER_OR_PERCENTAGE}(?:\\s*\\/\\s*${ALPHA})?\\s*\\)$`,
+    "i",
+  ),
+  new RegExp(
+    `^(?:lch|oklch)\\(\\s*${NUMBER_OR_PERCENTAGE}\\s+${NUMBER_OR_PERCENTAGE}\\s+${HUE}(?:\\s*\\/\\s*${ALPHA})?\\s*\\)$`,
+    "i",
+  ),
+];
 
 /** Escape text for an HTML text node. */
 export function escapeHTML(value: string): string {
@@ -62,10 +97,15 @@ export function assertSafeCssValue(value: string, label: string): void {
   if (
     !CSS_HEX_COLOR.test(color) &&
     !CSS_NAMED_COLORS.has(color.toLowerCase()) &&
-    !CSS_COLOR_FUNCTION.test(color)
+    !isSafeCssColorFunction(color)
   ) {
     throw new TypeError(`${label} must be a safe CSS color value`);
   }
+}
+
+/** Return whether a functional color uses the supported CSS grammar. */
+export function isSafeCssColorFunction(value: string): boolean {
+  return CSS_COLOR_FUNCTIONS.some((pattern) => pattern.test(value));
 }
 
 /** Validate a selector fragment before interpolating it into a stylesheet. */

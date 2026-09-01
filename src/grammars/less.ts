@@ -1,13 +1,19 @@
 import type { Grammar } from "../core/types";
+import { createNonNestingDelimitedPattern } from "../core/grammar-utils";
 import { css } from "./css";
 
 export const less: Grammar = {
   name: "less",
   aliases: [],
   tokens: {
+    mixin: {
+      pattern: /((?:^|[{;])[^\S\r\n]*)\.[\w-]+[^\S\r\n]*(?:\([^()\r\n]*\))?[^\S\r\n]*(?=[;{])/m,
+      lookbehind: true,
+      alias: "function",
+    },
     ...css.tokens,
     comment: [
-      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
+      { pattern: createNonNestingDelimitedPattern("/*", "*/"), greedy: true },
       { pattern: /\/\/.*/, greedy: true },
     ],
     atrule: [
@@ -34,11 +40,6 @@ export const less: Grammar = {
       },
     ],
     variable: /@[\w-]+/,
-    mixin: {
-      pattern: /(?:^|[{;])[^\S\r\n]*\.[\w-]+[^\S\r\n]*(?:\([^()\r\n]*\))?[^\S\r\n]*[;{]/m,
-      lookbehind: true,
-      alias: "function",
-    },
     "string-interpolation": {
       pattern: /@\{[\w-]+\}/,
       alias: "variable",

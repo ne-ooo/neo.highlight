@@ -176,6 +176,21 @@ describe("renderToHTML", () => {
     ]);
   });
 
+  it("should keep line features when the pre/code wrapper is disabled", () => {
+    const html = renderToHTML(["alpha\nbeta"], {
+      wrapCode: false,
+      lineNumbers: true,
+      highlightLines: [2],
+      diffHighlight: { added: [1] },
+    });
+    const container = parseRenderedHTML(html);
+
+    expect(container.querySelector("pre")).toBeNull();
+    expect(container.querySelectorAll(".neo-hl-line-number")).toHaveLength(2);
+    expect(container.querySelector(".neo-hl-line-highlighted")).not.toBeNull();
+    expect(container.querySelector(".neo-hl-diff-added")).not.toBeNull();
+  });
+
   it("hides decorative line numbers and diff gutters from assistive text", () => {
     const html = renderToHTML(["alpha\nbeta"], {
       lineNumbers: true,
@@ -207,6 +222,21 @@ describe("renderToHTML", () => {
       "mac",
     ]);
     expect(html).not.toContain("\r");
+  });
+
+  it("should treat a CRLF split across token boundaries as one line break", () => {
+    const tokens: Token[] = [
+      "a",
+      { type: "carriage-return", content: "\r", length: 1 },
+      "\n",
+      "b",
+    ];
+    const html = renderToHTML(tokens, { lineNumbers: true, maxLines: 2 });
+    const lines = parseRenderedHTML(html).querySelectorAll(
+      ".neo-hl-line-content",
+    );
+
+    expect([...lines].map((line) => line.textContent)).toEqual(["a", "b"]);
   });
 
   it("should use the active line-number color on highlighted lines", () => {

@@ -1,11 +1,12 @@
 import type { Grammar } from "../core/types";
+import { createNestedCommentPattern } from "../core/grammar-utils";
 
 export const ocaml: Grammar = {
   name: "ocaml",
   aliases: ["ml"],
   tokens: {
     comment: {
-      pattern: /\(\*(?:(?!\(\*|\*\))[\s\S])*\*\)/,
+      pattern: createNestedCommentPattern("(*", "*)"),
       greedy: true,
     },
     string: [

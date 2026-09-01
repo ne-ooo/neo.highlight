@@ -1,11 +1,12 @@
 import type { Grammar } from "../core/types";
+import { createNonNestingDelimitedPattern } from "../core/grammar-utils";
 
 export const css: Grammar = {
   name: "css",
   aliases: [],
   tokens: {
     comment: {
-      pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//,
+      pattern: createNonNestingDelimitedPattern("/*", "*/"),
       greedy: true,
     },
     string: {
@@ -38,7 +39,7 @@ export const css: Grammar = {
     },
     selector: {
       pattern:
-        /^[^\S\r\n]*[^\s@;{}()][^;{}\r\n]*(?=[^\S\r\n]*\{)/m,
+        /^([^\S\r\n]*)[^\s@;{}()][^;{}\r\n]*(?=[^\S\r\n]*\{)/m,
       lookbehind: true,
       inside: {
         "class-name": /\.\w[\w-]*/,
@@ -50,7 +51,7 @@ export const css: Grammar = {
       },
     },
     property: {
-      pattern: /(?:^|[;{])[^\S\r\n]*[-\w]+(?=[^\S\r\n]*:)/m,
+      pattern: /((?:^|[;{])[^\S\r\n]*)[-\w]+(?=[^\S\r\n]*:)/m,
       lookbehind: true,
     },
     important: /!important\b/i,

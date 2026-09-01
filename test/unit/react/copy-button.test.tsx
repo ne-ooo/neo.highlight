@@ -81,6 +81,29 @@ describe("CopyButton (React)", () => {
     });
   });
 
+  it("does not apply delayed feedback after unmount", async () => {
+    let resolveClipboard!: () => void;
+    const clipboardResult = new Promise<void>((resolve) => {
+      resolveClipboard = resolve;
+    });
+    const writeTextMock = vi.fn().mockReturnValue(clipboardResult);
+    Object.assign(navigator, {
+      clipboard: { writeText: writeTextMock },
+    });
+    const onCopy = vi.fn();
+    const view = render(<CopyButton code="code" onCopy={onCopy} />);
+    const button = screen.getByRole("button");
+
+    fireEvent.click(button);
+    view.unmount();
+    resolveClipboard();
+    await clipboardResult;
+    await Promise.resolve();
+
+    expect(button.textContent).toBe("Copy");
+    expect(onCopy).not.toHaveBeenCalled();
+  });
+
   it("accepts additional className", () => {
     render(<CopyButton code="code" className="extra-class" />);
     const button = screen.getByRole("button");

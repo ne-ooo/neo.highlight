@@ -282,6 +282,15 @@ describe("detectLanguage", () => {
     expect(fullResult).toBeDefined();
   });
 
+  it("returns undefined when maxLength produces an empty sample", () => {
+    expect(
+      detectLanguage("const x = 1;", [javascript], {
+        maxLength: 0,
+        minScore: 0,
+      }),
+    ).toBeUndefined();
+  });
+
   it("includes minScore in the cache key", () => {
     const code = `const x = 42; function hello() { return "world"; }`;
     expect(detectLanguage(code, allGrammars, { minScore: 0 })).toBeDefined();
@@ -329,6 +338,29 @@ describe("detectLanguage", () => {
     ).toBeUndefined();
   });
 
+  it("does not reuse grammar references from a structurally identical clone", () => {
+    clearDetectCache();
+    const grammarA: Grammar = {
+      name: "cloned",
+      tokens: { marker: /identity-marker/ },
+    };
+    const grammarB: Grammar = {
+      name: "cloned",
+      tokens: { marker: /identity-marker/ },
+    };
+
+    expect(
+      detectLanguage("identity-marker", [grammarA], { minScore: 0.01 })
+        ?.grammar,
+    ).toBe(grammarA);
+    const clonedResult = detectLanguage("identity-marker", [grammarB], {
+      minScore: 0.01,
+    });
+
+    expect(clonedResult?.grammar).toBe(grammarB);
+    expect(clonedResult?.candidates[0]?.grammar).toBe(grammarB);
+  });
+
   it("caches results", () => {
     const code = `const x = 42; function hello() { return "world"; }`;
     const result1 = detectLanguage(code, allGrammars);
@@ -356,6 +388,36 @@ describe("detectLanguage", () => {
     expect(
       detectLanguage("alpha", [grammarA, grammarB], { minScore: 0.01 })?.grammar,
     ).toBe(grammarB);
+  });
+
+  it("invalidates cached results when a custom matcher is replaced", () => {
+    const makeMatcher = (enabled: boolean) =>
+      function* (source: string) {
+        if (enabled && source.length > 0) {
+          yield { index: 0, text: source };
+        }
+      };
+    const grammar: Grammar = {
+      name: "mutable-matcher",
+      tokens: {
+        keyword: {
+          pattern: /\w+/,
+          matcher: makeMatcher(false),
+        },
+      },
+    };
+
+    expect(
+      detectLanguage("hello", [grammar], { minScore: 0.1 }),
+    ).toBeUndefined();
+    const keyword = grammar.tokens.keyword;
+    if (!keyword || Array.isArray(keyword) || keyword instanceof RegExp) {
+      throw new Error("Expected a token pattern");
+    }
+    keyword.matcher = makeMatcher(true);
+    expect(
+      detectLanguage("hello", [grammar], { minScore: 0.1 })?.grammar,
+    ).toBe(grammar);
   });
 
   it("does not let callers poison cached result objects", () => {

@@ -333,6 +333,10 @@ const HIGH_VALUE_TYPES = new Set([
 
 /** LRU cache: key → DetectResult | null */
 const detectCache = new Map<string, DetectResult | null>();
+const grammarIdentities = new WeakMap<Grammar, number>();
+let nextGrammarIdentity = 0;
+const functionIdentities = new WeakMap<Function, number>();
+let nextFunctionIdentity = 0;
 
 /**
  * Clear the detection cache.
@@ -448,6 +452,7 @@ export function detectLanguage(
 
   // Truncate for performance
   const sample = code.length > maxLength ? code.slice(0, maxLength) : code;
+  if (sample.length === 0) return undefined;
 
   const useCache = !noCache && sample.length <= CACHE_MAX_SAMPLE_LENGTH;
   const cacheKey = useCache
@@ -528,7 +533,12 @@ function createCacheKey(
   maxLength: number,
   minScore: number,
 ): string {
-  const grammarKey = grammars.map(fingerprintGrammar).join(";");
+  const grammarKey = grammars
+    .map(
+      (grammar) =>
+        `${getGrammarIdentity(grammar)}:${fingerprintGrammar(grammar)}`,
+    )
+    .join(";");
 
   return `${maxLength}:${minScore}:${grammarKey}:${sample}`;
 }
@@ -541,9 +551,18 @@ function cloneDetectResult(result: DetectResult): DetectResult {
   };
 }
 
+function getGrammarIdentity(grammar: Grammar): number {
+  const existing = grammarIdentities.get(grammar);
+  if (existing !== undefined) return existing;
+
+  const identity = nextGrammarIdentity++;
+  grammarIdentities.set(grammar, identity);
+  return identity;
+}
+
 /**
- * Include mutable grammar structure in cache keys. Length-prefixed fields make
- * the serialization unambiguous without retaining grammar objects globally.
+ * Include mutable grammar structure alongside object identity in cache keys.
+ * Length-prefixed fields make the serialization unambiguous.
  */
 function fingerprintGrammar(grammar: Grammar): string {
   const parts: string[] = [];
@@ -568,6 +587,15 @@ function fingerprintGrammar(grammar: Grammar): string {
     }
     if (value instanceof RegExp) {
       add(`regexp:${value.source}/${value.flags}`);
+      return;
+    }
+    if (typeof value === "function") {
+      let identity = functionIdentities.get(value);
+      if (identity === undefined) {
+        identity = nextFunctionIdentity++;
+        functionIdentities.set(value, identity);
+      }
+      add(`function:${identity}`);
       return;
     }
     if (typeof value !== "object" || value === null) {

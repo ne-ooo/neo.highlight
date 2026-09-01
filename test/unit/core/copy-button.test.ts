@@ -11,9 +11,13 @@ describe("renderCopyButton", () => {
     expect(html).toContain('data-copied-label="Copied!"');
   });
 
-  it("stores code in data-code attribute", () => {
-    const html = renderCopyButton("const x = 42;");
-    expect(html).toContain('data-code="const x = 42;"');
+  it("stores JSON-encoded code in data-code attribute", () => {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = renderCopyButton("const x = 42;");
+    const button = wrapper.querySelector("button")!;
+
+    expect(button.getAttribute("data-code-encoding")).toBe("json");
+    expect(JSON.parse(button.getAttribute("data-code")!)).toBe("const x = 42;");
   });
 
   it("escapes HTML in code", () => {
@@ -125,6 +129,22 @@ describe("initCopyButtons", () => {
     expect(writeTextMock).toHaveBeenCalledWith("const x = 42;");
   });
 
+  it("copies CRLF, bare CR, and NUL source exactly", async () => {
+    const source = "a\r\nb\rc\0d";
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: { writeText: writeTextMock },
+    });
+    container.innerHTML = renderCopyButton(source);
+    initCopyButtons(container);
+
+    container.querySelector<HTMLButtonElement>("button")!.click();
+
+    await vi.waitFor(() => {
+      expect(writeTextMock).toHaveBeenCalledWith(source);
+    });
+  });
+
   it("adds copied CSS class after click", async () => {
     const writeTextMock = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, {
@@ -151,6 +171,30 @@ describe("initCopyButtons", () => {
 
     cleanup();
     expect(spy).toHaveBeenCalledWith("click", expect.any(Function));
+  });
+
+  it("does not apply delayed feedback after cleanup", async () => {
+    let resolveClipboard!: () => void;
+    const clipboardResult = new Promise<void>((resolve) => {
+      resolveClipboard = resolve;
+    });
+    const writeTextMock = vi.fn().mockReturnValue(clipboardResult);
+    Object.assign(navigator, {
+      clipboard: { writeText: writeTextMock },
+    });
+    container.innerHTML = renderCopyButton("code");
+    const cleanup = initCopyButtons(container);
+    const button = container.querySelector<HTMLButtonElement>("button")!;
+
+    button.click();
+    cleanup();
+    resolveClipboard();
+    await clipboardResult;
+    await Promise.resolve();
+
+    expect(button.textContent).toBe("Copy");
+    expect(button.classList.contains("neo-hl-copy-button-copied")).toBe(false);
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("");
   });
 
   it("handles custom class prefix", () => {

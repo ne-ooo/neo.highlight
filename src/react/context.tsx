@@ -1,9 +1,10 @@
 import { createContext, useContext, useMemo } from "react";
 import type { Grammar, Theme } from "../core/types";
+import { useShallowStableArray } from "./stable-options";
 
 const EMPTY_LANGUAGES: Grammar[] = [];
 
-interface HighlightContextValue {
+export interface HighlightContextValue {
   theme?: Theme | string | undefined;
   languages: Grammar[];
   classPrefix: string;
@@ -31,9 +32,10 @@ export function HighlightProvider({
   classPrefix = "neo-hl",
   lineNumbers = false,
 }: HighlightProviderProps) {
+  const stableLanguages = useShallowStableArray(languages) ?? EMPTY_LANGUAGES;
   const value = useMemo(
-    () => ({ theme, languages, classPrefix, lineNumbers }),
-    [theme, languages, classPrefix, lineNumbers],
+    () => ({ theme, languages: stableLanguages, classPrefix, lineNumbers }),
+    [theme, stableLanguages, classPrefix, lineNumbers],
   );
 
   return (

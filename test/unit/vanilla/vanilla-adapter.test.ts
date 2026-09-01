@@ -41,6 +41,15 @@ describe("highlight (vanilla)", () => {
     expect(html).toContain("neo-hl-keyword");
   });
 
+  it("should render line numbers without the pre/code wrapper", () => {
+    const html = highlight("first\nsecond", javascript, {
+      wrapCode: false,
+      lineNumbers: true,
+    });
+    expect(html).not.toContain("<pre");
+    expect(html.match(/neo-hl-line-number/g)).toHaveLength(2);
+  });
+
   it("should use custom class prefix", () => {
     const html = highlight("const x = 42;", javascript, { classPrefix: "hl" });
     expect(html).toContain("hl-keyword");

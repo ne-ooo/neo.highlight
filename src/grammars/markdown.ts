@@ -9,21 +9,38 @@ export const markdown: Grammar = {
       greedy: true,
       alias: "important",
     },
-    "code-block": {
-      pattern: /^```[^\r\n]*\n[\s\S]*?^```$/m,
-      greedy: true,
-      alias: "keyword",
-      inside: {
-        "code-language": {
-          pattern: /^```[^\r\n]+/m,
-          alias: "tag",
-          inside: {
-            punctuation: /^```/,
+    "code-block": [
+      {
+        pattern: /^[ ]{0,3}(`{3,})[^\r\n]*\r?\n[\s\S]*?^[ ]{0,3}\1`*[^\S\r\n]*$/m,
+        greedy: true,
+        alias: "keyword",
+        inside: {
+          "code-language": {
+            pattern: /^(?:`{3,}|~{3,})[^\r\n]+/m,
+            alias: "tag",
+            inside: {
+              punctuation: /^(?:`{3,}|~{3,})/,
+            },
           },
+          punctuation: /^(?:`{3,}|~{3,})|(?:`{3,}|~{3,})$/m,
         },
-        punctuation: /^```|```$/m,
       },
-    },
+      {
+        pattern: /^[ ]{0,3}(~{3,})[^\r\n]*\r?\n[\s\S]*?^[ ]{0,3}\1~*[^\S\r\n]*$/m,
+        greedy: true,
+        alias: "keyword",
+        inside: {
+          "code-language": {
+            pattern: /^(?:`{3,}|~{3,})[^\r\n]+/m,
+            alias: "tag",
+            inside: {
+              punctuation: /^(?:`{3,}|~{3,})/,
+            },
+          },
+          punctuation: /^(?:`{3,}|~{3,})|(?:`{3,}|~{3,})$/m,
+        },
+      },
+    ],
     "inline-code": {
       pattern: /`[^`\r\n]+`/,
       greedy: true,

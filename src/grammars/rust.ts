@@ -1,4 +1,5 @@
 import type { Grammar } from "../core/types";
+import { createNestedCommentPattern } from "../core/grammar-utils";
 
 export const rust: Grammar = {
   name: "rust",
@@ -6,7 +7,7 @@ export const rust: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/\/?.*/, greedy: true },
-      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
+      { pattern: createNestedCommentPattern("/*", "*/"), greedy: true },
     ],
     string: [
       {
@@ -14,7 +15,7 @@ export const rust: Grammar = {
         greedy: true,
       },
       {
-        pattern: /b?r#*"[\s\S]*?"#*/,
+        pattern: /b?r(#+)?"[\s\S]*?"\1/,
         greedy: true,
       },
     ],
@@ -40,6 +41,14 @@ export const rust: Grammar = {
         /(\b(?:enum|impl|struct|trait|type|union)\s+)\w+/,
       lookbehind: true,
     },
+    "raw-identifier": {
+      pattern: /\br#(?!crate\b|self\b|Self\b|super\b)[a-zA-Z_]\w*/,
+      alias: "variable",
+    },
+    lifetime: {
+      pattern: /'[a-zA-Z_]\w*/,
+      alias: "variable",
+    },
     keyword:
       /\b(?:as|async|await|break|const|continue|crate|dyn|else|enum|extern|fn|for|if|impl|in|let|loop|match|mod|move|mut|pub|ref|return|self|Self|static|struct|super|trait|type|union|unsafe|use|where|while|yield)\b/,
     builtin:
@@ -47,10 +56,6 @@ export const rust: Grammar = {
     boolean: /\b(?:true|false)\b/,
     number:
       /\b(?:0[xX][\da-fA-F]+(?:_[\da-fA-F]+)*|0[oO][0-7]+(?:_[0-7]+)*|0[bB][01]+(?:_[01]+)*|\d+(?:_\d+)*(?:\.\d+(?:_\d+)*)?(?:[eE][+-]?\d+(?:_\d+)*)?)(?:_?(?:f32|f64|i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize))?\b/,
-    lifetime: {
-      pattern: /'[a-zA-Z_]\w*/,
-      alias: "variable",
-    },
     function: /\b\w+(?=\s*\()/,
     macro: {
       pattern: /\b\w+!/,

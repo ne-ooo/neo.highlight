@@ -1,4 +1,77 @@
-import type { Grammar } from "../core/types";
+import type { Grammar, TokenPattern } from "../core/types";
+import { createNestedCommentPattern } from "../core/grammar-utils";
+
+const MAX_CLASSIFIED_EXTENDED_STRING_HASHES = 8;
+
+function createExtendedStringPattern(
+  hashCount: number,
+  multiline: boolean,
+): TokenPattern {
+  const hashes = "#".repeat(hashCount);
+  const quotes = multiline ? '"""' : '"';
+  const terminatedBody = multiline ? "[\\s\\S]*?" : "[^\\r\\n]*?";
+  const unfinishedBody = multiline
+    ? "[\\s\\S]*(?![\\s\\S])"
+    : "[^\\r\\n]*(?=\\r?\\n|$)";
+
+  return {
+    pattern: new RegExp(
+      `(^|[^#])${hashes}${quotes}(?:${terminatedBody}${quotes}${hashes}(?!#)|${unfinishedBody})`,
+    ),
+    lookbehind: true,
+    greedy: true,
+    ...(multiline ? { alias: "string" } : {}),
+    inside: {
+      interpolation: {
+        pattern: new RegExp(`\\\\${hashes}\\([^()\\r\\n]*\\)`),
+        inside: {
+          punctuation: new RegExp(`^\\\\${hashes}\\(|\\)$`),
+        },
+      },
+    },
+  };
+}
+
+function createExtendedStringFallback(multiline: boolean): TokenPattern {
+  const quotes = multiline ? '"""' : '"';
+  const terminatedBody = multiline ? "[\\s\\S]*?" : "[^\\r\\n]*?";
+  const unfinishedBody = multiline
+    ? "[\\s\\S]*(?![\\s\\S])"
+    : "[^\\r\\n]*(?=\\r?\\n|$)";
+
+  return {
+    pattern: new RegExp(
+      `(^|[^#])(#{${MAX_CLASSIFIED_EXTENDED_STRING_HASHES + 1},})${quotes}(?:${terminatedBody}${quotes}\\2(?!#)|${unfinishedBody})`,
+    ),
+    lookbehind: true,
+    greedy: true,
+    ...(multiline ? { alias: "string" } : {}),
+  };
+}
+
+const extendedMultilineStrings: TokenPattern[] = [
+  createExtendedStringFallback(true),
+  ...Array.from(
+    { length: MAX_CLASSIFIED_EXTENDED_STRING_HASHES },
+    (_, index) =>
+      createExtendedStringPattern(
+        MAX_CLASSIFIED_EXTENDED_STRING_HASHES - index,
+        true,
+      ),
+  ),
+];
+
+const extendedSingleLineStrings: TokenPattern[] = [
+  createExtendedStringFallback(false),
+  ...Array.from(
+    { length: MAX_CLASSIFIED_EXTENDED_STRING_HASHES },
+    (_, index) =>
+      createExtendedStringPattern(
+        MAX_CLASSIFIED_EXTENDED_STRING_HASHES - index,
+        false,
+      ),
+  ),
+];
 
 export const swift: Grammar = {
   name: "swift",
@@ -6,33 +79,39 @@ export const swift: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
+      { pattern: createNestedCommentPattern("/*", "*/"), greedy: true },
     ],
-    "string-literal": {
-      pattern: /"""[\s\S]*?"""/,
-      greedy: true,
-      alias: "string",
-      inside: {
-        interpolation: {
-          pattern: /\\\([^()\r\n]*\)/,
-          inside: {
-            punctuation: /^\\\(|\)$/,
+    "string-literal": [
+      ...extendedMultilineStrings,
+      {
+        pattern: /"""[\s\S]*?"""/,
+        greedy: true,
+        alias: "string",
+        inside: {
+          interpolation: {
+            pattern: /\\\([^()\r\n]*\)/,
+            inside: {
+              punctuation: /^\\\(|\)$/,
+            },
           },
         },
       },
-    },
-    string: {
-      pattern: /"(?:\\[\s\S]|[^\\"\r\n])*"/,
-      greedy: true,
-      inside: {
-        interpolation: {
-          pattern: /\\\([^()\r\n]*\)/,
-          inside: {
-            punctuation: /^\\\(|\)$/,
+    ],
+    string: [
+      ...extendedSingleLineStrings,
+      {
+        pattern: /"(?:\\[\s\S]|[^\\"\r\n])*"/,
+        greedy: true,
+        inside: {
+          interpolation: {
+            pattern: /\\\([^()\r\n]*\)/,
+            inside: {
+              punctuation: /^\\\(|\)$/,
+            },
           },
         },
       },
-    },
+    ],
     attribute: {
       pattern: /@\w+(?:\([^)]*\))?/,
       alias: "decorator",

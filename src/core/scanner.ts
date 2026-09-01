@@ -18,8 +18,9 @@ const DEFAULT_SELECTOR = "pre code";
 const DEFAULT_CLASS_PREFIX = "neo-hl";
 
 interface ElementHighlightState {
-  source: string;
   classPrefix: string;
+  source: string;
+  renderedHTML: string;
   originalBackgroundColor: string;
   originalBackgroundPriority: string;
   originalColor: string;
@@ -72,7 +73,6 @@ function highlightElement(
   },
   force = false,
   internallyMutated?: WeakSet<Element>,
-  reuseStoredSource = false,
 ): boolean {
   if (!force && element.hasAttribute(HIGHLIGHTED_ATTR)) return false;
   if (
@@ -84,10 +84,11 @@ function highlightElement(
 
   const classPrefix = options.classPrefix ?? DEFAULT_CLASS_PREFIX;
   const previousState = highlightedElements.get(element);
-  const code =
-    reuseStoredSource && previousState
-      ? previousState.source
-      : getElementCode(element, previousState?.classPrefix ?? classPrefix);
+  const code = getElementCode(
+    element,
+    previousState,
+    previousState?.classPrefix ?? classPrefix,
+  );
   if (code.length === 0) return false;
 
   // Try language hint from class/data attributes first
@@ -136,9 +137,10 @@ function highlightElement(
 
   const state =
     previousState ??
-    captureElementHighlightState(element, code, classPrefix);
-  state.source = code;
+    captureElementHighlightState(element, classPrefix);
   state.classPrefix = classPrefix;
+  state.source = code;
+  state.renderedHTML = element.innerHTML;
   highlightedElements.set(element, state);
   applyElementTheme(element, options.theme, state);
 
@@ -147,13 +149,13 @@ function highlightElement(
 
 function captureElementHighlightState(
   element: Element,
-  source: string,
   classPrefix: string,
 ): ElementHighlightState {
   const style = element instanceof HTMLElement ? element.style : undefined;
   return {
-    source,
     classPrefix,
+    source: "",
+    renderedHTML: "",
     originalBackgroundColor: style?.getPropertyValue("background-color") ?? "",
     originalBackgroundPriority: style?.getPropertyPriority("background-color") ?? "",
     originalColor: style?.getPropertyValue("color") ?? "",
@@ -209,7 +211,6 @@ function tryHighlightElement(
   control: {
     force?: boolean;
     internallyMutated?: WeakSet<Element>;
-    reuseStoredSource?: boolean;
     onError?: ScanOptions["onError"];
   } = {},
 ): boolean {
@@ -221,7 +222,6 @@ function tryHighlightElement(
       options,
       control.force,
       control.internallyMutated,
-      control.reuseStoredSource,
     );
   } catch (error) {
     try {
@@ -233,16 +233,79 @@ function tryHighlightElement(
   }
 }
 
-function getElementCode(element: Element, classPrefix: string): string {
+function getElementCode(
+  element: Element,
+  state: ElementHighlightState | undefined,
+  classPrefix: string,
+): string {
   if (element.hasAttribute(HIGHLIGHTED_ATTR)) {
-    const lineContents = element.querySelectorAll(`.${classPrefix}-line-content`);
-    if (lineContents.length > 0) {
-      return [...lineContents]
-        .map((line) => line.textContent ?? "")
-        .join("\n");
+    if (state && element.innerHTML === state.renderedHTML) {
+      return state.source;
+    }
+    const lineClass = `${classPrefix}-line`;
+    let lineCount = 0;
+    for (const node of element.childNodes) {
+      if (node instanceof Element && node.classList.contains(lineClass)) {
+        lineCount++;
+      }
+    }
+    if (lineCount > 0) {
+      return getLineWrappedElementCode(
+        element,
+        lineCount,
+        state?.source,
+        classPrefix,
+      );
     }
   }
   return element.textContent ?? "";
+}
+
+function getLineWrappedElementCode(
+  element: Element,
+  lineCount: number,
+  previousSource: string | undefined,
+  classPrefix: string,
+): string {
+  const lineEndings = previousSource?.match(/\r\n|\r|\n/g) ?? [];
+  const lineClass = `${classPrefix}-line`;
+  const code: string[] = [];
+  let lineIndex = 0;
+
+  for (const node of element.childNodes) {
+    appendSourceText(node, classPrefix, code);
+    if (!(node instanceof Element) || !node.classList.contains(lineClass)) {
+      continue;
+    }
+    if (lineIndex < lineCount - 1) {
+      code.push(lineEndings[lineIndex] ?? "\n");
+    }
+    lineIndex++;
+  }
+
+  return code.join("");
+}
+
+function appendSourceText(
+  node: Node,
+  classPrefix: string,
+  output: string[],
+): void {
+  if (node instanceof Text) {
+    output.push(node.data);
+    return;
+  }
+  if (!(node instanceof Element)) return;
+  if (
+    node.classList.contains(`${classPrefix}-line-number`) ||
+    node.classList.contains(`${classPrefix}-diff-gutter`)
+  ) {
+    return;
+  }
+
+  for (const child of node.childNodes) {
+    appendSourceText(child, classPrefix, output);
+  }
 }
 
 /**
@@ -297,7 +360,7 @@ export function scan(options: ScanOptions): number {
         maxLines,
         maxTokenDepth,
       },
-      { force, reuseStoredSource: force, onError },
+      { force, onError },
     );
     if (highlighted) count++;
   }
@@ -336,6 +399,9 @@ export function observe(options: ScanOptions): () => void {
 
   const registry = createRegistry(languages);
   const resolvedTheme = theme ? resolveThemeOrThrow(theme) : undefined;
+  // Resolve the selector before allocating theme resources so setup failures
+  // cannot leak an injected stylesheet.
+  const elements = root.querySelectorAll(selector);
 
   // Apply theme CSS
   let themeCleanup: (() => void) | undefined;
@@ -357,12 +423,10 @@ export function observe(options: ScanOptions): () => void {
   };
 
   // Initial scan
-  const elements = root.querySelectorAll(selector);
   for (const element of elements) {
     if (!root.contains(element)) continue;
     tryHighlightElement(element, registry, languages, highlightOpts, {
       force,
-      reuseStoredSource: force,
       onError,
     });
   }
@@ -375,6 +439,7 @@ export function observe(options: ScanOptions): () => void {
   const internallyMutated = new WeakSet<Element>();
   const observer = new MutationObserver((mutations) => {
     const changedHighlighted = new Set<Element>();
+    const externallyChangedHighlighted = new Set<Element>();
     const addedMatches = new Set<Element>();
     const skippedInternalRecords = new Set<Element>();
 
@@ -383,6 +448,13 @@ export function observe(options: ScanOptions): () => void {
         mutation.target instanceof Element
           ? mutation.target
           : mutation.target.parentElement;
+      if (
+        target?.matches(selector) &&
+        !target.hasAttribute(HIGHLIGHTED_ATTR) &&
+        !target.parentElement?.closest(`[${HIGHLIGHTED_ATTR}]`)
+      ) {
+        addedMatches.add(target);
+      }
       const highlighted = target?.closest(`[${HIGHLIGHTED_ATTR}]`);
       if (highlighted?.matches(selector)) {
         changedHighlighted.add(highlighted);
@@ -400,6 +472,10 @@ export function observe(options: ScanOptions): () => void {
       ) {
         skippedInternalRecords.add(highlighted);
         continue;
+      }
+
+      if (highlighted?.matches(selector)) {
+        externallyChangedHighlighted.add(highlighted);
       }
 
       for (const node of mutation.addedNodes) {
@@ -424,7 +500,7 @@ export function observe(options: ScanOptions): () => void {
     for (const element of changedHighlighted) {
       if (internallyMutated.has(element)) {
         internallyMutated.delete(element);
-        continue;
+        if (!externallyChangedHighlighted.has(element)) continue;
       }
       if (!root.contains(element)) continue;
       tryHighlightElement(

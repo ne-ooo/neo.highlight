@@ -9,6 +9,57 @@ export function normalizeGrammarIdentifier(value: string): string {
   return value.trim().toLowerCase();
 }
 
+/** Build a bounded pattern for languages whose block comments can nest. */
+export function createNestedCommentPattern(
+  open: string,
+  close: string,
+  maxDepth = 4,
+): RegExp {
+  const openPattern = escapeRegExp(open);
+  const closePattern = escapeRegExp(close);
+  const plainCharacter = `(?!(?:${openPattern}|${closePattern}))[\\s\\S]`;
+  let body = `(?:${plainCharacter})*`;
+
+  for (let depth = 0; depth < maxDepth; depth += 1) {
+    body = `(?:${plainCharacter}|${openPattern}${body}${closePattern})*`;
+  }
+  return new RegExp(`${openPattern}${body}${closePattern}`);
+}
+
+/** Build a linear non-nesting delimiter pattern that includes an unfinished body. */
+export function createNonNestingDelimitedPattern(
+  open: string,
+  close: string,
+): RegExp {
+  const openPattern = escapeRegExp(open);
+  const closePattern = escapeRegExp(close);
+  return new RegExp(
+    `${openPattern}(?:[\\s\\S]*?${closePattern}|[\\s\\S]*(?![\\s\\S]))`,
+  );
+}
+
+/** Build a bounded paired-delimiter pattern with backslash escapes. */
+export function createBalancedDelimiterPattern(
+  open: string,
+  close: string,
+  maxDepth = 4,
+): RegExp {
+  const openPattern = escapeRegExp(open);
+  const closePattern = escapeRegExp(close);
+  const escapedCharacter = String.raw`\\[\s\S]`;
+  const plainCharacter = `(?!(?:\\\\|${openPattern}|${closePattern}))[\\s\\S]`;
+  let body = `(?:${escapedCharacter}|${plainCharacter})*`;
+
+  for (let depth = 0; depth < maxDepth; depth += 1) {
+    body = `(?:${escapedCharacter}|${plainCharacter}|${openPattern}${body}${closePattern})*`;
+  }
+  return new RegExp(`${openPattern}${body}${closePattern}`);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * Resolve a language string to a grammar by checking name and aliases.
  *

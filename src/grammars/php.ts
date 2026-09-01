@@ -1,4 +1,5 @@
 import type { Grammar } from "../core/types";
+import { createNonNestingDelimitedPattern } from "../core/grammar-utils";
 
 export const php: Grammar = {
   name: "php",
@@ -8,12 +9,8 @@ export const php: Grammar = {
       pattern: /<\?(?:php)?|<\?=|\?>/i,
       alias: "important",
     },
-    comment: [
-      { pattern: /\/\/.*|#.*/, greedy: true },
-      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
-    ],
     "doc-comment": {
-      pattern: /\/\*\*(?:(?!\/\*\*|\*\/)[\s\S])*\*\//,
+      pattern: createNonNestingDelimitedPattern("/**", "*/"),
       greedy: true,
       alias: "comment",
       inside: {
@@ -23,14 +20,26 @@ export const php: Grammar = {
         },
       },
     },
+    attribute: {
+      pattern: /#\[(?:(?!#\[|\])[\s\S])*\]/,
+      greedy: true,
+      alias: "decorator",
+      inside: {
+        punctuation: /^#\[|\]$/,
+      },
+    },
+    comment: [
+      { pattern: /\/\/.*|#(?!\[).*/, greedy: true },
+      { pattern: createNonNestingDelimitedPattern("/*", "*/"), greedy: true },
+    ],
     string: [
       {
-        pattern: /<<<'(\w+)'\r?\n(?:(?!<<<)[\s\S])*?\r?\n\1;/,
+        pattern: /<<<'(\w+)'\r?\n(?:[\s\S]*?\r?\n[^\S\r\n]*\1;|[\s\S]*(?![\s\S]))/,
         greedy: true,
         alias: "nowdoc",
       },
       {
-        pattern: /<<<(\w+)\r?\n(?:(?!<<<)[\s\S])*?\r?\n\1;/,
+        pattern: /<<<(\w+)\r?\n(?:[\s\S]*?\r?\n[^\S\r\n]*\1;|[\s\S]*(?![\s\S]))/,
         greedy: true,
         alias: "heredoc",
         inside: {
@@ -61,14 +70,6 @@ export const php: Grammar = {
         greedy: true,
       },
     ],
-    attribute: {
-      pattern: /#\[(?:(?!#\[|\])[\s\S])*\]/,
-      greedy: true,
-      alias: "decorator",
-      inside: {
-        punctuation: /^#\[|\]$/,
-      },
-    },
     "class-name": {
       pattern:
         /(\b(?:class|enum|extends|implements|instanceof|interface|new|trait)\s+)\w+/,

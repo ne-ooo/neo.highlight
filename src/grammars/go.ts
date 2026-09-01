@@ -1,4 +1,5 @@
 import type { Grammar } from "../core/types";
+import { createNonNestingDelimitedPattern } from "../core/grammar-utils";
 
 export const go: Grammar = {
   name: "go",
@@ -6,7 +7,7 @@ export const go: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
+      { pattern: createNonNestingDelimitedPattern("/*", "*/"), greedy: true },
     ],
     string: [
       {

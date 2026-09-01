@@ -4,6 +4,10 @@ import { tokenize } from "../core/tokenizer";
 import { renderToHTML } from "../core/renderer";
 import { useHighlightContext } from "./context";
 import { CopyButton } from "./copy-button";
+import {
+  useShallowStableArray,
+  useStableDiffHighlight,
+} from "./stable-options";
 
 export interface HighlightProps {
   children: string;
@@ -43,7 +47,7 @@ export interface HighlightProps {
  *
  * Usage:
  * ```tsx
- * <Highlight language={javascript} theme="github-dark">
+ * <Highlight language={javascript} theme={githubDark}>
  *   {`const x = 42;`}
  * </Highlight>
  * ```
@@ -74,6 +78,8 @@ export function Highlight({
   const theme = themeProp ?? ctx.theme;
   const lineNumbers = showLineNumbers ?? ctx.lineNumbers;
   const classPrefix = classPrefixProp ?? ctx.classPrefix;
+  const stableHighlightLines = useShallowStableArray(highlightLines);
+  const stableDiffHighlight = useStableDiffHighlight(diffHighlight);
 
   const tokens = useMemo(
     () => tokenize(children, language, {
@@ -96,8 +102,8 @@ export function Highlight({
     return renderToHTML(tokens, {
       theme,
       lineNumbers,
-      highlightLines,
-      diffHighlight,
+      highlightLines: stableHighlightLines,
+      diffHighlight: stableDiffHighlight,
       language: language.name,
       classPrefix,
       wrapCode: true,
@@ -111,8 +117,8 @@ export function Highlight({
     language,
     theme,
     lineNumbers,
-    highlightLines,
-    diffHighlight,
+    stableHighlightLines,
+    stableDiffHighlight,
     classPrefix,
     maxTokenCount,
     maxRenderedLength,

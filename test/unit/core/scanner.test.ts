@@ -3,6 +3,7 @@ import { scan, observe, autoHighlight } from "../../../src/core/scanner";
 import { javascript } from "../../../src/grammars/javascript";
 import { python } from "../../../src/grammars/python";
 import { githubDark } from "../../../src/themes/github-dark";
+import type { Grammar } from "../../../src/core/types";
 
 function createCodeBlock(code: string, language: string): HTMLPreElement {
   const pre = document.createElement("pre");
@@ -157,6 +158,79 @@ describe("scan", () => {
     expect(code?.classList.contains("neo-hl")).toBe(false);
   });
 
+  it("should use updated element text during a forced refresh", () => {
+    container.appendChild(createCodeBlock("const oldValue = 1;", "js"));
+    scan({ languages: [javascript], container });
+    const code = container.querySelector("code")!;
+    code.textContent = "let updatedValue = 2;";
+
+    const count = scan({ languages: [javascript], container, force: true });
+
+    expect(count).toBe(1);
+    expect(code.textContent).toBe("let updatedValue = 2;");
+    expect(code.querySelector(".neo-hl-keyword")?.textContent).toBe("let");
+  });
+
+  it("should preserve exact line endings when generated DOM is unchanged", () => {
+    const lineEndingGrammar: Grammar = {
+      name: "line-endings",
+      aliases: ["le"],
+      tokens: {
+        crlf: /\r\n/,
+        cr: /\r/,
+      },
+    };
+    const source = "first\r\nsecond\rthird";
+    container.appendChild(createCodeBlock(source, "le"));
+    scan({
+      languages: [lineEndingGrammar],
+      container,
+      lineNumbers: true,
+    });
+
+    const count = scan({
+      languages: [lineEndingGrammar],
+      container,
+      force: true,
+      lineNumbers: false,
+    });
+    const code = container.querySelector("code")!;
+
+    expect(count).toBe(1);
+    expect(code.querySelector(".neo-hl-crlf")).not.toBeNull();
+    expect(code.querySelector(".neo-hl-cr")).not.toBeNull();
+  });
+
+  it("should preserve foreign content added beside generated line wrappers", () => {
+    const lineEndingGrammar: Grammar = {
+      name: "line-endings-with-keywords",
+      aliases: ["le"],
+      tokens: {
+        crlf: /\r\n/,
+        keyword: /\b(?:const|let)\b/,
+      },
+    };
+    const source = "const first = 1;\r\nlet second = 2;";
+    container.appendChild(createCodeBlock(source, "le"));
+    scan({ languages: [lineEndingGrammar], container, lineNumbers: true });
+    const code = container.querySelector("code")!;
+    code.append(" const appended = 3;");
+
+    const count = scan({
+      languages: [lineEndingGrammar],
+      container,
+      force: true,
+      lineNumbers: false,
+    });
+
+    expect(count).toBe(1);
+    expect(code.textContent).toBe(
+      `${source.replace("\r\n", "\n")} const appended = 3;`,
+    );
+    expect(code.querySelector(".neo-hl-crlf")).not.toBeNull();
+    expect(code.querySelectorAll(".neo-hl-keyword")).toHaveLength(3);
+  });
+
   it("should not leak a stylesheet during a one-shot themed scan", () => {
     container.appendChild(createCodeBlock("const x = 42;", "js"));
     scan({ languages: [javascript], container, theme: githubDark });
@@ -230,6 +304,49 @@ describe("observe", () => {
     cleanup();
   });
 
+  it("should highlight an initially empty block when text is inserted", async () => {
+    container.appendChild(createCodeBlock("", "js"));
+    const cleanup = observe({ languages: [javascript], container });
+    const code = container.querySelector("code")!;
+
+    expect(code.hasAttribute("data-neo-highlighted")).toBe(false);
+    code.textContent = "const later = 1;";
+
+    await vi.waitFor(() => {
+      expect(code.getAttribute("data-neo-highlighted")).toBe("true");
+      expect(code.querySelector(".neo-hl-keyword")?.textContent).toBe("const");
+    });
+    cleanup();
+  });
+
+  it("should preserve an external change batched with internal highlighting", async () => {
+    container.appendChild(createCodeBlock("const original = 1;", "js"));
+    const cleanup = observe({ languages: [javascript], container });
+    const code = container.querySelector("code")!;
+    let replaced = false;
+    const externalObserver = new MutationObserver(() => {
+      if (!replaced && code.textContent === "let interim = 2;") {
+        replaced = true;
+        code.textContent = "const finalValue = 3;";
+      }
+    });
+    externalObserver.observe(code, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    code.textContent = "let interim = 2;";
+
+    await vi.waitFor(() => {
+      expect(replaced).toBe(true);
+      expect(code.textContent).toBe("const finalValue = 3;");
+      expect(code.querySelector(".neo-hl-keyword")?.textContent).toBe("const");
+    });
+    externalObserver.disconnect();
+    cleanup();
+  });
+
   it("should not process generated spans with a broad selector", async () => {
     const cleanup = observe({
       languages: [javascript],
@@ -284,6 +401,19 @@ describe("observe", () => {
 
     expect(document.getElementById("neo-hl-theme-github-dark")).toBeTruthy();
     cleanup();
+    expect(document.getElementById("neo-hl-theme-github-dark")).toBeNull();
+  });
+
+  it("should not leak a theme when selector setup fails", () => {
+    expect(() =>
+      observe({
+        languages: [],
+        container,
+        theme: githubDark,
+        selector: "[",
+      }),
+    ).toThrow();
+
     expect(document.getElementById("neo-hl-theme-github-dark")).toBeNull();
   });
 });

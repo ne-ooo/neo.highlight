@@ -1,4 +1,17 @@
 import type { Grammar } from "../core/types";
+import { createBalancedDelimiterPattern } from "../core/grammar-utils";
+
+const PERL_PAIRED_STRINGS = ([
+  ["(", ")"],
+  ["[", "]"],
+  ["{", "}"],
+  ["<", ">"],
+] as const).map(([open, close]) => ({
+  pattern: new RegExp(
+    `(?:q|qq|qw|qx)${createBalancedDelimiterPattern(open, close).source}`,
+  ),
+  greedy: true,
+}));
 
 export const perl: Grammar = {
   name: "perl",
@@ -10,9 +23,10 @@ export const perl: Grammar = {
     ],
     string: [
       {
-        pattern: /(?:q|qq|qw|qx)(?:\/(?:\\[\s\S]|[^\/\\\r\n])*\/|!(?:\\[\s\S]|[^!\\\r\n])*!|\((?:\\[\s\S]|[^()\\\r\n])*\)|\[(?:\\[\s\S]|[^\[\]\\\r\n])*\]|\{(?:\\[\s\S]|[^{}\\\r\n])*\}|<(?:\\[\s\S]|[^<>\\\r\n])*>)/,
+        pattern: /(?:q|qq|qw|qx)(?:\/(?:\\[\s\S]|[^\/\\\r\n])*\/|!(?:\\[\s\S]|[^!\\\r\n])*!)/,
         greedy: true,
       },
+      ...PERL_PAIRED_STRINGS,
       {
         pattern: /(["'])(?:\\[\s\S]|(?!\1)[^\\])*\1/,
         greedy: true,

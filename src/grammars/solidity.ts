@@ -1,4 +1,5 @@
 import type { Grammar } from "../core/types";
+import { createNonNestingDelimitedPattern } from "../core/grammar-utils";
 
 export const solidity: Grammar = {
   name: "solidity",
@@ -7,7 +8,7 @@ export const solidity: Grammar = {
     comment: [
       { pattern: /\/\/\/.*/, greedy: true, alias: "doc-comment" },
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
+      { pattern: createNonNestingDelimitedPattern("/*", "*/"), greedy: true },
     ],
     string: [
       { pattern: /(["'])(?:\\[\s\S]|(?!\1)[^\\])*\1/, greedy: true },

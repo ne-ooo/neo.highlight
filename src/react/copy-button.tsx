@@ -46,13 +46,15 @@ export function CopyButton({
 }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const mountedRef = useRef(true);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
       if (timerRef.current !== undefined) clearTimeout(timerRef.current);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const handleClick = useCallback(async () => {
     let success = false;
@@ -66,6 +68,8 @@ export function CopyButton({
         // Fall through to fallback
       }
     }
+
+    if (!mountedRef.current) return;
 
     // Fallback
     if (!success) {
@@ -84,7 +88,7 @@ export function CopyButton({
       document.body.removeChild(textarea);
     }
 
-    if (success) {
+    if (success && mountedRef.current) {
       setCopied(true);
       onCopy?.(code);
 

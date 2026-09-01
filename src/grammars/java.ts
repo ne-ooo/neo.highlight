@@ -1,4 +1,5 @@
 import type { Grammar } from "../core/types";
+import { createNonNestingDelimitedPattern } from "../core/grammar-utils";
 
 export const java: Grammar = {
   name: "java",
@@ -6,7 +7,7 @@ export const java: Grammar = {
   tokens: {
     comment: [
       {
-        pattern: /\/\*\*(?:(?!\/\*\*|\*\/)[\s\S])*\*\//,
+        pattern: createNonNestingDelimitedPattern("/**", "*/"),
         greedy: true,
         alias: "comment",
         inside: {
@@ -17,7 +18,7 @@ export const java: Grammar = {
         },
       },
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
+      { pattern: createNonNestingDelimitedPattern("/*", "*/"), greedy: true },
     ],
     string: [
       {

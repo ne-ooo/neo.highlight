@@ -26,7 +26,8 @@ export interface CopyButtonOptions {
 
 /**
  * Render a copy button HTML string.
- * The button stores the code in a `data-code` attribute.
+ * The button stores JSON-encoded code in a `data-code` attribute so HTML
+ * parsing cannot normalize source control characters.
  *
  * @param code - The raw code to be copied
  * @param options - Button options
@@ -41,12 +42,12 @@ export function renderCopyButton(code: string, options: CopyButtonOptions = {}):
 
   assertSafeCssIdentifier(classPrefix, "class prefix");
 
-  const escapedCode = escapeHTMLAttribute(code);
+  const escapedCode = escapeHTMLAttribute(JSON.stringify(code));
   const escapedLabel = escapeHTML(label);
   const labelAttribute = escapeHTMLAttribute(label);
   const copiedLabelAttribute = escapeHTMLAttribute(copiedLabel);
 
-  return `<button class="${classPrefix}-copy-button" data-code="${escapedCode}" data-label="${labelAttribute}" data-copied-label="${copiedLabelAttribute}" type="button" aria-label="${labelAttribute}">${escapedLabel}</button><span class="${classPrefix}-copy-status" role="status" aria-live="polite" aria-atomic="true" style="${VISUALLY_HIDDEN_STYLE}"></span>`;
+  return `<button class="${classPrefix}-copy-button" data-code="${escapedCode}" data-code-encoding="json" data-label="${labelAttribute}" data-copied-label="${copiedLabelAttribute}" type="button" aria-label="${labelAttribute}">${escapedLabel}</button><span class="${classPrefix}-copy-status" role="status" aria-live="polite" aria-atomic="true" style="${VISUALLY_HIDDEN_STYLE}"></span>`;
 }
 
 /**
@@ -114,12 +115,19 @@ export function initCopyButtons(
         ? nextElement
         : null;
     let resetTimer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
     const handler = () => {
-      const code = button.getAttribute("data-code") ?? "";
+      if (disposed) return;
+      const storedCode = button.getAttribute("data-code") ?? "";
+      const code =
+        button.getAttribute("data-code-encoding") === "json"
+          ? decodeStoredCode(storedCode)
+          : storedCode;
       const label = button.getAttribute("data-label") ?? DEFAULT_LABEL;
       const copiedLabel = button.getAttribute("data-copied-label") ?? DEFAULT_COPIED_LABEL;
 
       void copyToClipboard(code).then((success) => {
+        if (disposed) return;
         if (success) {
           button.textContent = copiedLabel;
           button.classList.add(`${classPrefix}-copy-button-copied`);
@@ -137,6 +145,7 @@ export function initCopyButtons(
 
     button.addEventListener("click", handler);
     cleanups.push(() => {
+      disposed = true;
       button.removeEventListener("click", handler);
       if (resetTimer !== undefined) clearTimeout(resetTimer);
     });
@@ -147,4 +156,13 @@ export function initCopyButtons(
       cleanup();
     }
   };
+}
+
+function decodeStoredCode(value: string): string {
+  try {
+    const decoded: unknown = JSON.parse(value);
+    return typeof decoded === "string" ? decoded : value;
+  } catch {
+    return value;
+  }
 }

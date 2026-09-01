@@ -185,6 +185,10 @@ function applyPattern(
   depth: number,
   context: TokenizeContext,
 ): void {
+  const matches = getSourceMatches(source, regex, patternObj)[Symbol.iterator]();
+  let nextMatch = matches.next();
+  if (nextMatch.done) return;
+
   const spans: TokenSpan[] = [];
   let sourceOffset = 0;
   for (const token of tokens) {
@@ -199,40 +203,14 @@ function applyPattern(
   let spanIndex = 0;
   let acceptedAny = false;
 
-  regex.lastIndex = 0;
-  for (
-    let regexMatch = regex.exec(source);
-    regexMatch;
-    regexMatch = regex.exec(source)
-  ) {
-    const fullText = regexMatch[0];
+  for (; !nextMatch.done; nextMatch = matches.next()) {
+    const sourceMatch = nextMatch.value;
     context.matchCount++;
     if (context.matchCount > context.maxMatchCount) {
       throw new RangeError(
         `Regex match count exceeds maxMatchCount ${context.maxMatchCount}`,
       );
     }
-    if (fullText.length === 0) {
-      const fullUnicode =
-        regex.unicode ||
-        (regex as RegExp & { readonly unicodeSets?: boolean }).unicodeSets === true;
-      regex.lastIndex = advanceStringIndex(source, regexMatch.index, fullUnicode);
-      continue;
-    }
-
-    const lookbehindLength =
-      patternObj.lookbehind && regexMatch[1] !== undefined
-        ? regexMatch[1].length
-        : 0;
-    const text = fullText.slice(lookbehindLength);
-    if (text.length === 0) continue;
-
-    const sourceMatch: SourceMatch = {
-      start: regexMatch.index + lookbehindLength,
-      end: regexMatch.index + fullText.length,
-      text,
-    };
-
     while (
       spanIndex < spans.length &&
       spans[spanIndex]!.end <= sourceMatch.start
@@ -249,9 +227,16 @@ function applyPattern(
     if (spans[lastIndex]!.end < sourceMatch.end) continue;
 
     const containedInOneToken = firstIndex === lastIndex;
-    const startsInPlainText = typeof spans[firstIndex]!.token === "string";
+    const firstToken = spans[firstIndex]!.token;
+    const startsInPlainText = typeof firstToken === "string";
+    const startsAtTokenBoundary = sourceMatch.start === spans[firstIndex]!.start;
+    const startsInSameTokenType =
+      typeof firstToken !== "string" && firstToken.type === tokenType;
     const canReplace = patternObj.greedy
-      ? startsInPlainText || !containedInOneToken
+      ? startsInPlainText ||
+        (!containedInOneToken &&
+          startsAtTokenBoundary &&
+          !startsInSameTokenType)
       : containedInOneToken && startsInPlainText;
     if (!canReplace) continue;
 
@@ -305,6 +290,63 @@ function applyPattern(
   );
   tokens.length = 0;
   for (const token of output) tokens.push(token);
+}
+
+function* getSourceMatches(
+  source: string,
+  regex: RegExp,
+  patternObj: TokenPattern,
+): Iterable<SourceMatch> {
+  if (patternObj.matcher) {
+    let previousEnd = 0;
+    for (const match of patternObj.matcher(source)) {
+      if (
+        !Number.isInteger(match.index) ||
+        match.index < 0 ||
+        match.text.length === 0 ||
+        match.index < previousEnd ||
+        match.index + match.text.length > source.length ||
+        source.slice(match.index, match.index + match.text.length) !== match.text
+      ) {
+        throw new TypeError("Custom token matcher returned an invalid source span");
+      }
+      yield {
+        start: match.index,
+        end: match.index + match.text.length,
+        text: match.text,
+      };
+      previousEnd = match.index + match.text.length;
+    }
+    return;
+  }
+
+  regex.lastIndex = 0;
+  for (
+    let regexMatch = regex.exec(source);
+    regexMatch;
+    regexMatch = regex.exec(source)
+  ) {
+    const fullText = regexMatch[0];
+    if (fullText.length === 0) {
+      const fullUnicode =
+        regex.unicode ||
+        (regex as RegExp & { readonly unicodeSets?: boolean }).unicodeSets === true;
+      regex.lastIndex = advanceStringIndex(source, regexMatch.index, fullUnicode);
+      continue;
+    }
+
+    const lookbehindLength =
+      patternObj.lookbehind && regexMatch[1] !== undefined
+        ? regexMatch[1].length
+        : 0;
+    const text = fullText.slice(lookbehindLength);
+    if (text.length === 0) continue;
+    yield {
+      start: regexMatch.index + lookbehindLength,
+      end: regexMatch.index + fullText.length,
+      text,
+    };
+  }
 }
 
 function appendMatchedToken(

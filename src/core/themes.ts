@@ -161,7 +161,7 @@ export function getThemeCSS(theme: Theme, classPrefix = DEFAULT_CLASS_PREFIX): s
   // Selection styling
   if (theme.selection) {
     lines.push("");
-    lines.push(`.${classPrefix} ::selection { background: var(--${classPrefix}-selection); }`);
+    lines.push(`${getSelectionSelectors(classPrefix)} { background: var(--${classPrefix}-selection); }`);
   }
 
   // Line numbers
@@ -227,6 +227,10 @@ export function getDualThemeStylesheet(
     assertSafeCssSelector(darkSelector, "dark selector")
   }
   const lines: string[] = []
+  const tokenTypes = new Set([
+    ...Object.keys(lightTheme.tokenColors),
+    ...Object.keys(darkTheme.tokenColors),
+  ])
 
   // Light theme variables (default)
   lines.push(`.${classPrefix} {`)
@@ -251,7 +255,7 @@ export function getDualThemeStylesheet(
   // Dark theme variables
   if (darkSelector) {
     // Class-based: .dark .neo-hl { ... }
-    lines.push(`${darkSelector} .${classPrefix} {`)
+    lines.push(`${scopeSelectorList(darkSelector, `.${classPrefix}`)} {`)
   } else {
     // Media query based (default)
     lines.push(`@media (prefers-color-scheme: dark) {`)
@@ -260,10 +264,18 @@ export function getDualThemeStylesheet(
 
   lines.push(`  --${classPrefix}-bg: ${darkTheme.background};`)
   lines.push(`  --${classPrefix}-fg: ${darkTheme.foreground};`)
-  appendOptionalThemeVariables(lines, darkTheme, classPrefix)
-  for (const [tokenType, color] of Object.entries(darkTheme.tokenColors)) {
-    if (color) {
-      lines.push(`  --${classPrefix}-${tokenType}: ${color};`)
+  appendDarkOptionalThemeVariables(
+    lines,
+    lightTheme,
+    darkTheme,
+    classPrefix,
+  )
+  for (const tokenType of tokenTypes) {
+    const darkColor = darkTheme.tokenColors[tokenType]
+    if (darkColor) {
+      lines.push(`  --${classPrefix}-${tokenType}: ${darkColor};`)
+    } else if (lightTheme.tokenColors[tokenType]) {
+      lines.push(`  --${classPrefix}-${tokenType}: initial;`)
     }
   }
 
@@ -274,16 +286,23 @@ export function getDualThemeStylesheet(
   lines.push("")
 
   // Token classes (use CSS variables, works for both themes)
-  for (const tokenType of new Set([
-    ...Object.keys(lightTheme.tokenColors),
-    ...Object.keys(darkTheme.tokenColors),
-  ])) {
+  for (const tokenType of tokenTypes) {
     lines.push(`.${classPrefix}-${tokenType} { color: var(--${classPrefix}-${tokenType}); }`)
   }
 
-  if (lightTheme.selection || darkTheme.selection) {
+  if (lightTheme.selection) {
     lines.push("")
-    lines.push(`.${classPrefix} ::selection { background: var(--${classPrefix}-selection); }`)
+    lines.push(`${getSelectionSelectors(classPrefix)} { background: var(--${classPrefix}-selection); }`)
+  }
+  if (!lightTheme.selection && darkTheme.selection) {
+    appendDarkSelectionRule(
+      lines,
+      darkSelector,
+      classPrefix,
+      `var(--${classPrefix}-selection)`,
+    )
+  } else if (lightTheme.selection && !darkTheme.selection) {
+    appendDarkSelectionRule(lines, darkSelector, classPrefix, "revert")
   }
   if (lightTheme.lineNumber || darkTheme.lineNumber) {
     lines.push("")
@@ -327,6 +346,119 @@ function appendOptionalThemeVariables(
   for (const [name, value] of variables) {
     if (value) lines.push(`  --${classPrefix}-${name}: ${value};`)
   }
+}
+
+function appendDarkOptionalThemeVariables(
+  lines: string[],
+  lightTheme: Theme,
+  darkTheme: Theme,
+  classPrefix: string,
+): void {
+  const variables: Array<[
+    string,
+    string | undefined,
+    string | undefined,
+  ]> = [
+    ["selection", lightTheme.selection, darkTheme.selection],
+    ["line-number", lightTheme.lineNumber, darkTheme.lineNumber],
+    [
+      "line-number-active",
+      lightTheme.lineNumberActive,
+      darkTheme.lineNumberActive,
+    ],
+    ["line-highlight", lightTheme.lineHighlight, darkTheme.lineHighlight],
+    ["diff-added-bg", lightTheme.diffAddedBg, darkTheme.diffAddedBg],
+    ["diff-removed-bg", lightTheme.diffRemovedBg, darkTheme.diffRemovedBg],
+    [
+      "diff-modified-bg",
+      lightTheme.diffModifiedBg,
+      darkTheme.diffModifiedBg,
+    ],
+  ]
+  for (const [name, lightValue, darkValue] of variables) {
+    if (darkValue) {
+      lines.push(`  --${classPrefix}-${name}: ${darkValue};`)
+    } else if (lightValue) {
+      lines.push(`  --${classPrefix}-${name}: initial;`)
+    }
+  }
+}
+
+function appendDarkSelectionRule(
+  lines: string[],
+  darkSelector: string | undefined,
+  classPrefix: string,
+  background: string,
+): void {
+  lines.push("")
+  if (darkSelector) {
+    const rootSelection = scopeSelectorList(
+      darkSelector,
+      `.${classPrefix}::selection`,
+    )
+    const descendantSelection = scopeSelectorList(
+      darkSelector,
+      `.${classPrefix} ::selection`,
+    )
+    lines.push(
+      `${rootSelection}, ${descendantSelection} { background: ${background}; }`,
+    )
+    return
+  }
+  lines.push("@media (prefers-color-scheme: dark) {")
+  lines.push(
+    `${getSelectionSelectors(classPrefix)} { background: ${background}; }`,
+  )
+  lines.push("}")
+}
+
+function getSelectionSelectors(classPrefix: string): string {
+  return `.${classPrefix}::selection, .${classPrefix} ::selection`
+}
+
+function scopeSelectorList(selectorList: string, target: string): string {
+  const selectors: string[] = []
+  let start = 0
+  let nesting = 0
+  let quote: string | undefined
+  let escaped = false
+
+  for (let index = 0; index < selectorList.length; index += 1) {
+    const character = selectorList[index]!
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (character === "\\") {
+      escaped = true
+      continue
+    }
+    if (quote) {
+      if (character === quote) quote = undefined
+      continue
+    }
+    if (character === '"' || character === "'") {
+      quote = character
+      continue
+    }
+    if (character === "(" || character === "[") {
+      nesting += 1
+      continue
+    }
+    if (character === ")" || character === "]") {
+      nesting = Math.max(0, nesting - 1)
+      continue
+    }
+    if (character === "," && nesting === 0) {
+      selectors.push(selectorList.slice(start, index).trim())
+      start = index + 1
+    }
+  }
+  selectors.push(selectorList.slice(start).trim())
+  if (selectors.some((selector) => selector.length === 0)) {
+    throw new TypeError("dark selector must be a safe CSS selector")
+  }
+  return selectors.map((selector) => `${selector} ${target}`).join(", ")
 }
 
 /**

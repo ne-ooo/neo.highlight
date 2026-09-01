@@ -1,15 +1,16 @@
 import type { Grammar } from "../core/types";
+import { createNonNestingDelimitedPattern } from "../core/grammar-utils";
 import { css } from "./css";
 
 export const scss: Grammar = {
   name: "scss",
   aliases: ["sass"],
   tokens: {
+    ...css.tokens,
     comment: [
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
+      { pattern: createNonNestingDelimitedPattern("/*", "*/"), greedy: true },
     ],
-    ...css.tokens,
     variable: /\$[\w-]+|--[\w-]+/,
     interpolation: {
       pattern: /#\{[^{}\r\n]+\}/,

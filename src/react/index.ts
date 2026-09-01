@@ -11,4 +11,7 @@ export { CopyButton } from "./copy-button";
 export type { CopyButtonProps } from "./copy-button";
 
 export { HighlightProvider, useHighlightContext } from "./context";
-export type { HighlightProviderProps } from "./context";
+export type {
+  HighlightContextValue,
+  HighlightProviderProps,
+} from "./context";

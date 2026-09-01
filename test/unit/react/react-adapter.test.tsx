@@ -171,6 +171,26 @@ describe("HighlightProvider", () => {
     );
     expect(renderCount).toBe(1);
   });
+
+  it("does not redraw consumers for an equivalent language array", () => {
+    let renderCount = 0;
+    const Consumer = React.memo(function Consumer() {
+      useHighlightContext();
+      renderCount++;
+      return <span>consumer</span>;
+    });
+    const child = <Consumer />;
+
+    const { rerender } = render(
+      <HighlightProvider languages={[javascript]}>{child}</HighlightProvider>,
+    );
+    expect(renderCount).toBe(1);
+
+    rerender(
+      <HighlightProvider languages={[javascript]}>{child}</HighlightProvider>,
+    );
+    expect(renderCount).toBe(1);
+  });
 });
 
 describe("AutoHighlight component", () => {
@@ -246,6 +266,25 @@ describe("AutoHighlight component", () => {
     expect(code.classList.contains("neo-hl")).toBe(false);
     expect(code.style.color).not.toBe("");
     expect(code.style.color).not.toBe(initialColor);
+  });
+
+  it("should preserve changed children during a forced effect refresh", () => {
+    const { container, rerender } = render(
+      <AutoHighlight languages={[javascript]}>
+        <pre><code className="language-js">{"const oldValue = 1;"}</code></pre>
+      </AutoHighlight>,
+    );
+    const code = container.querySelector("code")!;
+
+    rerender(
+      <AutoHighlight languages={[javascript]} lineNumbers>
+        <pre><code className="language-js">{"let newValue = 2;"}</code></pre>
+      </AutoHighlight>,
+    );
+
+    expect(code.textContent).toContain("let newValue = 2;");
+    expect(code.textContent).not.toContain("const oldValue = 1;");
+    expect(code.querySelector(".neo-hl-keyword")?.textContent).toBe("let");
   });
 
   it("should refresh when automatic detection is enabled", () => {

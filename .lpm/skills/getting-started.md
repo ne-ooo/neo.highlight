@@ -13,7 +13,7 @@ globs:
 
 ## Overview
 
-neo.highlight is a zero-dependency syntax highlighter. ~3.8 KB gzipped core, 55 languages, 10 themes, first-class React adapter, vanilla JS adapter, fully synchronous (SSR/edge-ready), tree-shakeable.
+neo.highlight is a synchronous, tree-shakeable syntax highlighter. It has a ~3.8 KB gzipped core, 55 languages, 10 themes, and React and vanilla adapters.
 
 ## React API
 
@@ -67,7 +67,6 @@ import {
 // Automatically highlights all <code> elements within children
 <AutoHighlight
   languages={[javascript, python, typescript]}
-  theme="github-dark"
   autoDetect
   lineNumbers
 >
@@ -345,10 +344,10 @@ const grammars = [javascript, python, typescript];
 resolveGrammar("js", grammars); // → javascript grammar
 resolveGrammar("py", grammars); // → python grammar
 resolveGrammar("ts", grammars); // → typescript grammar
-resolveGrammar("unknown", grammars); // → undefined
+resolveGrammar("unknown", grammars); // → null
 ```
 
-Checks grammar `name` and `aliases`. The lookup ignores case and surrounding whitespace. It returns the `Grammar` object or `undefined`.
+Checks grammar `name` and `aliases`. The lookup ignores case and surrounding whitespace. It returns the `Grammar` object or `null`.
 
 ## Themes (10 Built-in, WCAG AA Compliant)
 
@@ -405,11 +404,7 @@ const report = validateThemeContrast(dracula);
 // {
 //   passed: true,
 //   theme: "dracula",
-//   results: [
-//     { token: "keyword", color: "#ff79c6", background: "#282a36", ratio: 5.2, required: 4.5, pass: true },
-//     { token: "string", color: "#f1fa8c", background: "#282a36", ratio: 9.1, required: 4.5, pass: true },
-//     ...
-//   ]
+//   results: [{ token: "keyword", ratio: 5.2, required: 4.5, pass: true }, ...]
 // }
 
 if (!report.passed) {
@@ -428,10 +423,10 @@ import {
   relativeLuminance,
 } from "@lpm.dev/neo.highlight";
 
-// Calculate contrast ratio between two hex colors (range: 1 to 21)
+// Calculate a contrast ratio (1 to 21)
 contrastRatio("#ff79c6", "#282a36"); // → 5.2
 
-// Check WCAG AA compliance (4.5:1 for normal text, 3:1 for large text)
+// Check WCAG AA compliance
 meetsWCAG_AA("#ff79c6", "#282a36"); // → true
 meetsWCAG_AA("#ff79c6", "#282a36", true); // → true (large text, 3:1 threshold)
 
@@ -496,7 +491,7 @@ if (result) {
 }
 ```
 
-The base score uses keyword density (35%), coverage (30%), diversity (20%), and high-value tokens (15%). Language profiles add positive and negative syntax evidence. A derived grammar must have syntax that identifies it before it can outrank its base grammar.
+The base score uses keyword density, coverage, diversity, and high-value tokens. Language profiles add positive and negative syntax evidence.
 
 The 100-entry cache key includes the sample and the complete grammar structure. Samples longer than 10000 units bypass the cache.
 
@@ -504,7 +499,7 @@ Prefer explicit `class="language-*"` attributes. Use auto-detection only as a fa
 
 ## Tree-Shaking
 
-Import only what you need — `sideEffects: false` ensures bundlers eliminate unused grammars/themes. Core + 1 grammar ≈ 4.2 KB gzipped.
+Import only what you need. Only the worker entry is side-effectful, so bundlers can eliminate unused grammars and themes. Core + 1 grammar ≈ 4.2 KB gzipped.
 
 ## TypeScript Types
 

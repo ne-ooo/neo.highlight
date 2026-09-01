@@ -69,7 +69,9 @@ describe("getThemeCSS", () => {
 
   it("should include selection styling when defined", () => {
     const css = getThemeCSS(githubDark);
-    expect(css).toContain("::selection");
+    expect(css).toContain(
+      ".neo-hl::selection, .neo-hl ::selection { background:",
+    );
     expect(css).toContain("--neo-hl-selection:");
   });
 
@@ -178,6 +180,21 @@ describe("getThemeCSS", () => {
         tokenColors: { keyword: "#fff" },
       }),
     ).not.toThrow();
+  });
+
+  it.each([
+    "rgb(255deg 0 0)",
+    "rgb(255, 0 0)",
+    "hsl(0, 100% 50%)",
+  ])("should reject invalid functional color syntax %s", (background) => {
+    expect(() =>
+      getThemeCSS({
+        name: "invalid-functional-color",
+        background,
+        foreground: "#fff",
+        tokenColors: { keyword: "#fff" },
+      }),
+    ).toThrow(/background/i);
   });
 
   it("should reject injection in a dual-theme dark selector", () => {

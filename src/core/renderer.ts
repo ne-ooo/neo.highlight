@@ -30,6 +30,7 @@ interface RenderContext {
   readonly activeNodes: Set<TokenNode>;
   tokenCount: number;
   lineCount: number;
+  previousWasCR: boolean;
 }
 
 /**
@@ -72,6 +73,7 @@ export function renderToHTML(tokens: Token[], options: RenderOptions = {}): stri
     activeNodes: new Set<TokenNode>(),
     tokenCount: 0,
     lineCount: tokens.length === 0 ? 0 : 1,
+    previousWasCR: false,
   };
   if (renderContext.lineCount > maxLines) {
     throw new RangeError(`Line count exceeds maxLines ${maxLines}`);
@@ -93,8 +95,6 @@ export function renderToHTML(tokens: Token[], options: RenderOptions = {}): stri
   }
   const codeHTML = renderedTokens.join("");
 
-  if (!wrapCode && !wrapLines) return codeHTML;
-
   const highlightSet = highlightLines?.length ? new Set(highlightLines) : null;
   const hasDiffLines = Boolean(
     diffHighlight?.added?.length ||
@@ -102,6 +102,8 @@ export function renderToHTML(tokens: Token[], options: RenderOptions = {}): stri
       diffHighlight?.modified?.length,
   );
   const needsLineWrapping = wrapLines || lineNumbers || Boolean(highlightSet) || hasDiffLines;
+
+  if (!wrapCode && !needsLineWrapping) return codeHTML;
 
   // Build diff line sets
   const diffAdded = diffHighlight?.added ? new Set(diffHighlight.added) : null;
@@ -243,10 +245,16 @@ function renderToken(
 function countLines(text: string, context: RenderContext): void {
   for (let index = 0; index < text.length; index++) {
     if (text[index] === "\n") {
+      if (context.previousWasCR) {
+        context.previousWasCR = false;
+        continue;
+      }
       context.lineCount++;
     } else if (text[index] === "\r") {
       context.lineCount++;
-      if (text[index + 1] === "\n") index++;
+      context.previousWasCR = true;
+    } else {
+      context.previousWasCR = false;
     }
     if (context.lineCount > context.maxLines) {
       throw new RangeError(`Line count exceeds maxLines ${context.maxLines}`);
@@ -418,10 +426,17 @@ function splitHTMLIntoLines(html: string, maxLines: number): string[] {
   let currentLine = "";
   // Stack of open tag strings (e.g. '<span class="neo-hl-keyword">')
   const openTags: string[] = [];
+  let previousBoundaryWasCR = false;
 
   let i = 0;
   while (i < html.length) {
     if (html[i] === "\n" || html[i] === "\r") {
+      const boundary = html[i]!;
+      if (boundary === "\n" && previousBoundaryWasCR) {
+        previousBoundaryWasCR = false;
+        i++;
+        continue;
+      }
       // Close all open tags for this line
       for (let t = openTags.length - 1; t >= 0; t--) {
         currentLine += "</span>";
@@ -435,9 +450,10 @@ function splitHTMLIntoLines(html: string, maxLines: number): string[] {
       for (const tag of openTags) {
         currentLine += tag;
       }
-      // Treat CRLF as one boundary and a bare CR as a newline. The rendered
-      // line content is normalized without disturbing the open-token stack.
-      i += html[i] === "\r" && html[i + 1] === "\n" ? 2 : 1;
+      // A following LF is part of this boundary even if token markup appears
+      // between the two source characters.
+      previousBoundaryWasCR = boundary === "\r";
+      i++;
     } else if (html[i] === "<") {
       // Find the end of the tag
       const closeIdx = html.indexOf(">", i);
@@ -462,6 +478,7 @@ function splitHTMLIntoLines(html: string, maxLines: number): string[] {
       }
       i = closeIdx + 1;
     } else {
+      previousBoundaryWasCR = false;
       currentLine += html[i];
       i++;
     }

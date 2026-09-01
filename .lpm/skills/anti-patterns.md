@@ -139,7 +139,7 @@ import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
 // Server-side
 applyTheme(githubDark); // Does nothing — checks typeof document
 const html = renderToHTML(tokens, { theme: githubDark });
-// HTML renders without any theme styles!
+// Inline fallbacks render the basic theme, but stylesheet-only rules are absent.
 ```
 
 Correct:
@@ -163,11 +163,11 @@ const html = renderToHTML(tokens, { theme: githubDark });
 // Client-side only: applyTheme() injects a <style> tag
 if (typeof document !== "undefined") {
   const cleanup = applyTheme(githubDark);
-  // cleanup() removes the <style> tag
+  // cleanup?.() removes the <style> tag
 }
 ```
 
-`applyTheme()` checks `typeof document` and returns a no-op cleanup if not in a browser. In SSR contexts (Node.js, Deno, edge runtimes), use `getThemeStylesheet()` to get the CSS string and inject it into the HTML response. The `renderToHTML()` function includes inline styles via CSS custom properties, but the theme stylesheet must be present for those variables to resolve.
+`applyTheme()` checks `typeof document` and returns `undefined` if it is not in a browser. In SSR contexts (Node.js, Deno, edge runtimes), use `getThemeStylesheet()` to get the CSS string and inject it into the HTML response. `renderToHTML()` includes fallback colors for the base, token, and line styles, so basic highlighting works without the stylesheet. Inject the stylesheet for selection pseudo-elements and reusable global class rules or overrides.
 
 Source: `src/core/themes.ts` — `typeof document` guard in `applyTheme()`
 

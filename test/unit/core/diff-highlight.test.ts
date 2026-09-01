@@ -126,14 +126,14 @@ describe("Diff Highlighting — Renderer", () => {
     expect(allLineSpans).toHaveLength(4);
   });
 
-  it("does not wrap lines when wrapCode is false", () => {
+  it("preserves diff line markup when wrapCode is false", () => {
     const html = renderToHTML(tokens, {
       wrapCode: false,
       diffHighlight: { added: [1] },
     });
-    // wrapCode: false returns raw token HTML without line wrapping
-    expect(html).not.toContain("neo-hl-diff-added");
-    expect(html).not.toContain("neo-hl-line");
+    expect(html).not.toContain("<pre");
+    expect(html).toContain("neo-hl-diff-added");
+    expect(html).toContain("neo-hl-line");
   });
 
   it("uses custom class prefix for diff classes", () => {

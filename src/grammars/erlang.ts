@@ -12,9 +12,16 @@ export const erlang: Grammar = {
       pattern: /"(?:\\[\s\S]|[^\\"])*"/,
       greedy: true,
     },
+    keyword:
+      /\b(?:after|begin|case|catch|end|fun|if|of|receive|try|when|query|not|and|or|xor|band|bor|bxor|bnot|bsl|bsr|div|rem|let)\b/,
+    boolean: /\b(?:true|false)\b/,
+    function: {
+      pattern: /\b[a-z]\w*(?=\s*\()/,
+    },
     atom: [
       {
         pattern: /'(?:\\[\s\S]|[^\\'])*'/,
+        greedy: true,
         alias: "symbol",
       },
       {
@@ -22,12 +29,6 @@ export const erlang: Grammar = {
         alias: "symbol",
       },
     ],
-    keyword:
-      /\b(?:after|begin|case|catch|end|fun|if|of|receive|try|when|query|not|and|or|xor|band|bor|bxor|bnot|bsl|bsr|div|rem|let)\b/,
-    boolean: /\b(?:true|false)\b/,
-    function: {
-      pattern: /\b[a-z]\w*(?=\s*\()/,
-    },
     variable: /\b[A-Z_]\w*/,
     number:
       /\b(?:\d+#[\dA-Za-z]+|\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)\b/,

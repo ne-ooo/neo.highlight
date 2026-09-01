@@ -1,4 +1,5 @@
 import type { Grammar } from "../core/types";
+import { createNestedCommentPattern } from "../core/grammar-utils";
 
 export const kotlin: Grammar = {
   name: "kotlin",
@@ -6,7 +7,7 @@ export const kotlin: Grammar = {
   tokens: {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
-      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
+      { pattern: createNestedCommentPattern("/*", "*/"), greedy: true },
     ],
     string: [
       {

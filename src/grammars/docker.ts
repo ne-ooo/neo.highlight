@@ -5,7 +5,7 @@ export const docker: Grammar = {
   aliases: ["dockerfile"],
   tokens: {
     comment: {
-      pattern: /#.*/,
+      pattern: /^[^\S\r\n]*#.*/m,
       greedy: true,
     },
     string: [

@@ -1,4 +1,5 @@
 import type { Grammar } from "../core/types";
+import { createNonNestingDelimitedPattern } from "../core/grammar-utils";
 
 export const terraform: Grammar = {
   name: "terraform",
@@ -7,10 +8,10 @@ export const terraform: Grammar = {
     comment: [
       { pattern: /\/\/.*/, greedy: true },
       { pattern: /#.*/, greedy: true },
-      { pattern: /\/\*(?:(?!\/\*|\*\/)[\s\S])*\*\//, greedy: true },
+      { pattern: createNonNestingDelimitedPattern("/*", "*/"), greedy: true },
     ],
     "heredoc-string": {
-      pattern: /<<-?[^\S\r\n]*(\w+)[^\S\r\n]*(?:\r?\n)(?:(?!<<-?)[\s\S])*?^[^\S\r\n]*\1/m,
+      pattern: /<<-?[^\S\r\n]*(\w+)[^\S\r\n]*\r?\n(?:[\s\S]*?^[^\S\r\n]*\1[^\S\r\n]*\r?$|[\s\S]*(?![\s\S]))/m,
       greedy: true,
       alias: "string",
       inside: {

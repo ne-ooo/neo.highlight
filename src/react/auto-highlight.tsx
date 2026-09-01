@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { Grammar, Theme } from "../core/types";
 import { observe } from "../core/scanner";
 import { useHighlightContext } from "./context";
+import { useShallowStableArray } from "./stable-options";
 
 export interface AutoHighlightProps {
   children: React.ReactNode;
@@ -39,7 +40,7 @@ export interface AutoHighlightProps {
  *
  * Usage:
  * ```tsx
- * <AutoHighlight languages={[javascript, python]} theme="github-dark">
+ * <AutoHighlight languages={[javascript, python]} theme={githubDark}>
  *   <article dangerouslySetInnerHTML={{ __html: sanitizedMarkdownHtml }} />
  * </AutoHighlight>
  * ```
@@ -66,17 +67,18 @@ export function AutoHighlight({
   const ctx = useHighlightContext();
 
   const languages = languagesProp ?? ctx.languages;
+  const stableLanguages = useShallowStableArray(languages) ?? [];
   const theme = themeProp ?? ctx.theme;
   const lineNumbers = lineNumbersProp ?? ctx.lineNumbers;
   const classPrefix = classPrefixProp ?? ctx.classPrefix;
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || languages.length === 0) return;
+    if (!container || stableLanguages.length === 0) return;
 
     const cleanup = observe({
       selector,
-      languages,
+      languages: stableLanguages,
       theme,
       lineNumbers,
       container,
@@ -96,7 +98,7 @@ export function AutoHighlight({
     return cleanup;
   }, [
     selector,
-    languages,
+    stableLanguages,
     theme,
     lineNumbers,
     classPrefix,

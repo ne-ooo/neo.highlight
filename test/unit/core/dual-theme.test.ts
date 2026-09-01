@@ -3,6 +3,7 @@ import { getDualThemeStylesheet } from "../../../src/core/themes";
 import { githubLight } from "../../../src/themes/github-light";
 import { githubDark } from "../../../src/themes/github-dark";
 import { oneDark } from "../../../src/themes/one-dark";
+import type { Theme } from "../../../src/core/types";
 
 describe("getDualThemeStylesheet", () => {
   it("generates @media prefers-color-scheme by default", () => {
@@ -23,6 +24,15 @@ describe("getDualThemeStylesheet", () => {
       darkSelector: '[data-theme="dark"]',
     });
     expect(css).toContain('[data-theme="dark"] .neo-hl {');
+  });
+
+  it("scopes each selector in a comma-separated dark selector", () => {
+    const css = getDualThemeStylesheet(githubLight, githubDark, {
+      darkSelector: ".dark, .night",
+    });
+
+    expect(css).toContain(".dark .neo-hl, .night .neo-hl {");
+    expect(css).not.toContain(".dark, .night .neo-hl {");
   });
 
   it("includes light theme variables", () => {
@@ -67,7 +77,7 @@ describe("getDualThemeStylesheet", () => {
   it("generates rules for optional theme features", () => {
     const css = getDualThemeStylesheet(githubLight, githubDark);
 
-    expect(css).toContain(".neo-hl ::selection");
+    expect(css).toContain(".neo-hl::selection, .neo-hl ::selection");
     expect(css).toContain(".neo-hl-line-highlighted .neo-hl-line-number");
     expect(css).toContain(".neo-hl-line-highlighted { background:");
     expect(css).toContain(".neo-hl-diff-added { background:");
@@ -94,5 +104,58 @@ describe("getDualThemeStylesheet", () => {
     expect(css).toContain(".code {");
     expect(css).toContain("--code-bg:");
     expect(css).toContain(".code-keyword");
+  });
+
+  it("resets light-only variables in sparse dark themes", () => {
+    const lightTheme: Theme = {
+      name: "sparse-light",
+      background: "#ffffff",
+      foreground: "#111111",
+      selection: "#eeeeee",
+      tokenColors: { keyword: "#222222" },
+    };
+    const darkTheme: Theme = {
+      name: "sparse-dark",
+      background: "#111111",
+      foreground: "#eeeeee",
+      tokenColors: {},
+    };
+
+    const css = getDualThemeStylesheet(lightTheme, darkTheme, {
+      darkSelector: ".dark",
+    });
+    const darkBlock = css.slice(css.indexOf(".dark .neo-hl {"));
+
+    expect(darkBlock).toContain("--neo-hl-selection: initial;");
+    expect(darkBlock).toContain("--neo-hl-keyword: initial;");
+    expect(darkBlock).toContain(
+      ".dark .neo-hl::selection, .dark .neo-hl ::selection { background: revert; }",
+    );
+  });
+
+  it("scopes a dark-only selection color to dark mode", () => {
+    const lightTheme: Theme = {
+      name: "selection-light",
+      background: "#ffffff",
+      foreground: "#111111",
+      tokenColors: {},
+    };
+    const darkTheme: Theme = {
+      name: "selection-dark",
+      background: "#111111",
+      foreground: "#eeeeee",
+      selection: "#333333",
+      tokenColors: {},
+    };
+
+    const css = getDualThemeStylesheet(lightTheme, darkTheme, {
+      darkSelector: ".dark",
+    });
+    expect(css).not.toMatch(
+      /^\.neo-hl ::selection \{ background: var\(--neo-hl-selection\); \}$/m,
+    );
+    expect(css).toContain(
+      ".dark .neo-hl::selection, .dark .neo-hl ::selection { background: var(--neo-hl-selection); }",
+    );
   });
 });

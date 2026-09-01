@@ -25,6 +25,8 @@ export interface TokenNode {
 export interface TokenPattern {
   /** The regex pattern to match */
   pattern: RegExp;
+  /** Optional linear matcher for constructs that cannot be scanned safely by one regex. */
+  matcher?: ((source: string) => Iterable<TokenPatternMatch>) | undefined;
   /** If true, the pattern takes priority and prevents other tokens from matching inside it */
   greedy?: boolean;
   /** Optional lookbehind — if true, the first captured group is treated as lookbehind */
@@ -33,6 +35,14 @@ export interface TokenPattern {
   alias?: string | string[];
   /** Nested grammar to apply inside the matched content */
   inside?: GrammarTokens;
+}
+
+/** A source span returned by a custom token matcher. */
+export interface TokenPatternMatch {
+  /** Zero-based UTF-16 source offset. */
+  index: number;
+  /** Exact source text for the token. */
+  text: string;
 }
 
 /**
