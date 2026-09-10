@@ -1,6 +1,5 @@
 import type { Grammar } from "../core/types";
-import { createNonNestingDelimitedPattern } from "../core/grammar-utils";
-import { css } from "./css";
+import { createCssTokens } from "./shared/css-tokens";
 
 export const less: Grammar = {
   name: "less",
@@ -11,11 +10,7 @@ export const less: Grammar = {
       lookbehind: true,
       alias: "function",
     },
-    ...css.tokens,
-    comment: [
-      { pattern: createNonNestingDelimitedPattern("/*", "*/"), greedy: true },
-      { pattern: /\/\/.*/, greedy: true },
-    ],
+    ...createCssTokens("less"),
     atrule: [
       {
         pattern:

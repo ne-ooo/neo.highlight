@@ -25,6 +25,7 @@ export {
 } from "./core/renderer";
 export { applyTheme, registerTheme, registerThemes, getTheme, getThemeCSS, resolveTheme, resolveThemeOrThrow, getDualThemeStylesheet } from "./core/themes";
 export { resolveGrammar } from "./core/grammar-utils";
+export { normalizeHighlightRanges, MAX_HIGHLIGHT_RANGES } from "./core/highlight-ranges";
 export { scan, observe, autoHighlight } from "./core/scanner";
 export { detectLanguage, scoreTokenization, clearDetectCache } from "./core/detect";
 export { renderCopyButton, initCopyButtons } from "./core/copy-button";
@@ -36,6 +37,7 @@ export type {
   TokenNode,
   TokenPattern,
   TokenPatternMatch,
+  TokenMatcherContext,
   TokenDefinition,
   Grammar,
   GrammarTokens,
@@ -43,6 +45,12 @@ export type {
   Theme,
   ThemeTokenColors,
   RenderOptions,
+  HighlightRange,
+  RenderAttributes,
+  RenderHooks,
+  RenderHookContext,
+  TokenRenderContext,
+  LineRenderContext,
   ScanOptions,
   GrammarRegistry,
   DetectResult,

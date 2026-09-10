@@ -149,12 +149,19 @@ export function getThemeCSS(theme: Theme, classPrefix = DEFAULT_CLASS_PREFIX): s
   lines.push(`.${classPrefix}-line { display: block; min-height: 1em; }`);
   lines.push(`.${classPrefix}-line-number { display: inline-block; min-width: 3ch; margin-right: 1em; text-align: right; user-select: none; }`);
   lines.push(`.${classPrefix}-diff-gutter { display: inline-block; width: 1.5em; text-align: center; user-select: none; }`);
+  lines.push(`.${classPrefix}-word-highlight { background: var(--${classPrefix}-word-highlight-bg, rgba(127,127,127,.25)); border-radius: 2px; }`);
   lines.push("");
 
   // Token classes
   for (const [tokenType, color] of Object.entries(theme.tokenColors)) {
     if (color) {
       lines.push(`.${classPrefix}-${tokenType} { color: var(--${classPrefix}-${tokenType}); }`);
+    }
+  }
+
+  for (const [tokenType, color] of Object.entries(theme.tokenColors)) {
+    if (color) {
+      lines.push(`.${classPrefix}-color-${tokenType}[class] { color: var(--${classPrefix}-${tokenType}); }`);
     }
   }
 
@@ -182,14 +189,14 @@ export function getThemeCSS(theme: Theme, classPrefix = DEFAULT_CLASS_PREFIX): s
   // Diff highlighting
   if (theme.diffAddedBg || theme.diffRemovedBg || theme.diffModifiedBg) {
     lines.push("");
-    if (theme.diffAddedBg) {
-      lines.push(`.${classPrefix}-diff-added { background: var(--${classPrefix}-diff-added-bg); }`);
+    if (theme.diffModifiedBg) {
+      lines.push(`.${classPrefix}-diff-modified { background: var(--${classPrefix}-diff-modified-bg); }`);
     }
     if (theme.diffRemovedBg) {
       lines.push(`.${classPrefix}-diff-removed { background: var(--${classPrefix}-diff-removed-bg); }`);
     }
-    if (theme.diffModifiedBg) {
-      lines.push(`.${classPrefix}-diff-modified { background: var(--${classPrefix}-diff-modified-bg); }`);
+    if (theme.diffAddedBg) {
+      lines.push(`.${classPrefix}-diff-added { background: var(--${classPrefix}-diff-added-bg); }`);
     }
   }
 
@@ -250,6 +257,7 @@ export function getDualThemeStylesheet(
   lines.push(`.${classPrefix}-line { display: block; min-height: 1em; }`)
   lines.push(`.${classPrefix}-line-number { display: inline-block; min-width: 3ch; margin-right: 1em; text-align: right; user-select: none; }`)
   lines.push(`.${classPrefix}-diff-gutter { display: inline-block; width: 1.5em; text-align: center; user-select: none; }`)
+  lines.push(`.${classPrefix}-word-highlight { background: var(--${classPrefix}-word-highlight-bg, rgba(127,127,127,.25)); border-radius: 2px; }`);
   lines.push("")
 
   // Dark theme variables
@@ -290,6 +298,10 @@ export function getDualThemeStylesheet(
     lines.push(`.${classPrefix}-${tokenType} { color: var(--${classPrefix}-${tokenType}); }`)
   }
 
+  for (const tokenType of tokenTypes) {
+    lines.push(`.${classPrefix}-color-${tokenType}[class] { color: var(--${classPrefix}-${tokenType}); }`)
+  }
+
   if (lightTheme.selection) {
     lines.push("")
     lines.push(`${getSelectionSelectors(classPrefix)} { background: var(--${classPrefix}-selection); }`)
@@ -315,15 +327,15 @@ export function getDualThemeStylesheet(
     lines.push("")
     lines.push(`.${classPrefix}-line-highlighted { background: var(--${classPrefix}-line-highlight); }`)
   }
-  if (lightTheme.diffAddedBg || darkTheme.diffAddedBg) {
-    lines.push("")
-    lines.push(`.${classPrefix}-diff-added { background: var(--${classPrefix}-diff-added-bg); }`)
+  if (lightTheme.diffModifiedBg || darkTheme.diffModifiedBg) {
+    lines.push(`.${classPrefix}-diff-modified { background: var(--${classPrefix}-diff-modified-bg); }`)
   }
   if (lightTheme.diffRemovedBg || darkTheme.diffRemovedBg) {
     lines.push(`.${classPrefix}-diff-removed { background: var(--${classPrefix}-diff-removed-bg); }`)
   }
-  if (lightTheme.diffModifiedBg || darkTheme.diffModifiedBg) {
-    lines.push(`.${classPrefix}-diff-modified { background: var(--${classPrefix}-diff-modified-bg); }`)
+  if (lightTheme.diffAddedBg || darkTheme.diffAddedBg) {
+    lines.push("")
+    lines.push(`.${classPrefix}-diff-added { background: var(--${classPrefix}-diff-added-bg); }`)
   }
 
   return lines.join("\n")

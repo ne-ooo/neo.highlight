@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { DiffHighlight, Grammar, Theme } from "../core/types";
+import type { DiffHighlight, HighlightRange, RenderHooks, Grammar, Theme } from "../core/types";
 import { tokenize } from "../core/tokenizer";
 import { renderToHTML } from "../core/renderer";
 import { useHighlightContext } from "./context";
@@ -13,8 +13,13 @@ export interface HighlightProps {
   children: string;
   language: Grammar;
   theme?: Theme | string;
+  /** Class output requires the matching theme stylesheet. */
+  styleMode?: "inline" | "class";
   showLineNumbers?: boolean;
   highlightLines?: number[];
+  highlightRanges?: readonly HighlightRange[];
+  startLine?: number;
+  hooks?: RenderHooks;
   /** Line diff highlighting (added/removed/modified lines) */
   diffHighlight?: DiffHighlight;
   /** Show a copy-to-clipboard button */
@@ -56,8 +61,12 @@ export function Highlight({
   children,
   language,
   theme: themeProp,
+  styleMode,
   showLineNumbers,
   highlightLines,
+  highlightRanges,
+  startLine,
+  hooks,
   diffHighlight,
   copyButton = false,
   copyButtonLabel,
@@ -101,7 +110,9 @@ export function Highlight({
   const html = useMemo(() => {
     return renderToHTML(tokens, {
       theme,
+      styleMode,
       lineNumbers,
+      startLine, hooks, highlightRanges,
       highlightLines: stableHighlightLines,
       diffHighlight: stableDiffHighlight,
       language: language.name,
@@ -116,7 +127,9 @@ export function Highlight({
     tokens,
     language,
     theme,
+    styleMode,
     lineNumbers,
+    startLine, hooks, highlightRanges,
     stableHighlightLines,
     stableDiffHighlight,
     classPrefix,

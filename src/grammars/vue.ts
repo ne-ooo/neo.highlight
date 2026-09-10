@@ -1,45 +1,13 @@
-import type { Grammar, TokenPattern } from "../core/types";
-import { html } from "./html";
-
-const directive: TokenPattern = {
-  pattern:
-    /(?:v-[\w-]+|[:@#][\w-]+)(?:\.[\w-]+)*(?:\s*=\s*(?:"[^"]*"|'[^']*'))?/,
-  inside: {
-    "attr-name": {
-      pattern: /^(?:v-[\w-]+|[:@#][\w-]+)(?:\.[\w-]+)*/,
-      alias: "keyword",
-    },
-    "attr-value": {
-      pattern: /=[\s\S]+/,
-      inside: {
-        punctuation: [
-          /^=/,
-          { pattern: /^["']|["']$/, alias: "attr-equals" },
-        ],
-      },
-    },
-  },
-};
-
-const htmlTag = html.tokens["tag"] as TokenPattern;
+import type { Grammar } from "../core/types";
+import { javascript } from "./javascript";
+import { typescript } from "./typescript";
+import { json } from "./json";
+import { css } from "./css";
+import { scss } from "./scss";
+import { createMarkupTokens } from "./shared/markup-tokens";
 
 export const vue: Grammar = {
   name: "vue",
   aliases: ["vue-html"],
-  tokens: {
-    ...html.tokens,
-    tag: {
-      ...htmlTag,
-      inside: {
-        directive,
-        ...htmlTag.inside,
-      },
-    },
-    interpolation: {
-      pattern: /\{\{(?:[^{]|\{(?!\{))*\}\}/,
-      inside: {
-        punctuation: /^\{\{|\}\}$/,
-      },
-    },
-  },
+  tokens: createMarkupTokens("vue", { javascript, typescript, json, css, scss }),
 };

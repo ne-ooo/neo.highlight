@@ -1,16 +1,11 @@
 import type { Grammar } from "../core/types";
-import { createNonNestingDelimitedPattern } from "../core/grammar-utils";
-import { css } from "./css";
+import { createCssTokens } from "./shared/css-tokens";
 
 export const scss: Grammar = {
   name: "scss",
   aliases: ["sass"],
   tokens: {
-    ...css.tokens,
-    comment: [
-      { pattern: /\/\/.*/, greedy: true },
-      { pattern: createNonNestingDelimitedPattern("/*", "*/"), greedy: true },
-    ],
+    ...createCssTokens("scss"),
     variable: /\$[\w-]+|--[\w-]+/,
     interpolation: {
       pattern: /#\{[^{}\r\n]+\}/,

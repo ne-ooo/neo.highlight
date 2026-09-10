@@ -1,77 +1,8 @@
 import type { Grammar } from "../core/types";
-import { createNonNestingDelimitedPattern } from "../core/grammar-utils";
+import { createCssTokens } from "./shared/css-tokens";
 
 export const css: Grammar = {
   name: "css",
   aliases: [],
-  tokens: {
-    comment: {
-      pattern: createNonNestingDelimitedPattern("/*", "*/"),
-      greedy: true,
-    },
-    string: {
-      pattern: /(["'])(?:\\[\s\S]|(?!\1)[^\\])*\1/,
-      greedy: true,
-    },
-    "atrule": {
-      pattern: /@[\w-](?:[^;{\s]|[^\S\r\n]+(?![^\S\r\n{]))*(?:;|(?=[^\S\r\n]*\{))/,
-      inside: {
-        keyword: /^@[\w-]+/,
-        selector: /(?:not|matches|is|where|has)\([^()]*\)/,
-        string: {
-          pattern: /(["'])(?:\\[\s\S]|(?!\1)[^\\])*\1/,
-          greedy: true,
-        },
-        punctuation: /[;:,]/,
-      },
-    },
-    url: {
-      pattern: /\burl\((?:(["'])(?:\\[\s\S]|(?!\1)[^\\])*\1|[^\s"'()]+)\)/i,
-      greedy: true,
-      inside: {
-        function: /^url/i,
-        punctuation: /^\(|\)$/,
-        string: {
-          pattern: /^(["'])[\s\S]+(?=\1$)/,
-          lookbehind: true,
-        },
-      },
-    },
-    selector: {
-      pattern:
-        /^([^\S\r\n]*)[^\s@;{}()][^;{}\r\n]*(?=[^\S\r\n]*\{)/m,
-      lookbehind: true,
-      inside: {
-        "class-name": /\.\w[\w-]*/,
-        "pseudo-class": /:[\w-]+(?:\([^()]*\))?/,
-        "pseudo-element": /::[\w-]+/,
-        "id-selector": /#\w[\w-]*/,
-        "attribute-selector": /\[[^\[\]]+\]/,
-        combinator: /[>+~]|(?=\s)\s(?=\S)/,
-      },
-    },
-    property: {
-      pattern: /((?:^|[;{])[^\S\r\n]*)[-\w]+(?=[^\S\r\n]*:)/m,
-      lookbehind: true,
-    },
-    important: /!important\b/i,
-    function: {
-      pattern: /(^|[^\w-])[\w-]+(?=\()/,
-      lookbehind: true,
-      alias: "builtin",
-    },
-    number: {
-      pattern:
-        /(?:\b|\B[+-])(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?(?:%|[a-z]+\b)?/i,
-    },
-    "hex-color": {
-      pattern: /#[\da-f]{3,8}\b/i,
-      alias: "number",
-    },
-    operator: /[+*/%~-]/,
-    keyword:
-      /\b(?:and|not|only|or|from|to|inherit|initial|unset|revert|revert-layer)\b/,
-    punctuation: /[{}();:,]/,
-    variable: /--[\w-]+/,
-  },
+  tokens: createCssTokens(),
 };

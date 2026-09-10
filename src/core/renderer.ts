@@ -2,7 +2,8 @@
  * Renderer — Converts token arrays to HTML strings
  * -----------------------------------------------------------------------------------------------*/
 
-import type { RenderOptions, Theme, Token, TokenNode } from "./types";
+import type { RenderOptions, RenderHooks, RenderHookContext, HighlightRange, Theme, Token, TokenNode } from "./types";
+import { normalizeHighlightRanges, MAX_HIGHLIGHT_RANGES } from "./highlight-ranges";
 import {
   getThemeCSS,
   resolveThemeOrThrow,
@@ -13,7 +14,9 @@ import {
   escapeHTML,
   escapeHTMLAttribute,
 } from "./safety";
+import { decorateTag, validateRenderHooks } from "./render-hooks";
 import {
+  getPlainText,
   DEFAULT_MAX_TOKEN_COUNT,
   DEFAULT_MAX_TOKEN_DEPTH,
 } from "./tokenizer";
@@ -23,11 +26,19 @@ export const DEFAULT_MAX_RENDERED_LENGTH = 10_000_000;
 export const DEFAULT_MAX_LINES = 10_000;
 
 interface RenderContext {
+  readonly styleMode: "inline" | "class";
+  readonly openingTags: Map<string, string>;
   readonly maxRenderedLength: number;
   readonly maxLines: number;
   readonly maxTokenCount: number;
   readonly maxTokenDepth: number;
   readonly activeNodes: Set<TokenNode>;
+  readonly hooks: RenderHooks | undefined;
+  readonly hookContext: RenderHookContext | undefined;
+  readonly ranges: readonly HighlightRange[];
+  readonly wordTag: string;
+  rangeIndex: number;
+  offset: number;
   tokenCount: number;
   lineCount: number;
   previousWasCR: boolean;
@@ -43,8 +54,12 @@ interface RenderContext {
 export function renderToHTML(tokens: Token[], options: RenderOptions = {}): string {
   const {
     theme,
+    styleMode = "inline",
     lineNumbers = false,
+    startLine = 1,
+    hooks,
     highlightLines,
+    highlightRanges,
     language,
     classPrefix = DEFAULT_CLASS_PREFIX,
     wrapCode = true,
@@ -56,21 +71,41 @@ export function renderToHTML(tokens: Token[], options: RenderOptions = {}): stri
     maxTokenDepth = DEFAULT_MAX_TOKEN_DEPTH,
   } = options;
 
+  if (!Number.isSafeInteger(startLine) || startLine < 1) throw new RangeError("startLine must be a positive safe integer");
+  if (typeof wrapLines !== "boolean" && wrapLines !== "source") throw new TypeError('wrapLines must be a boolean or "source"');
+  if (hooks !== undefined) validateRenderHooks(hooks);
+  if (highlightRanges !== undefined) {
+    if (!Array.isArray(highlightRanges)) throw new TypeError("highlightRanges must be an array");
+    if (highlightRanges.length > MAX_HIGHLIGHT_RANGES) throw new RangeError(`highlightRanges exceeds ${MAX_HIGHLIGHT_RANGES} ranges`);
+  }
   assertLimit(maxTokenCount, "maxTokenCount");
   assertLimit(maxRenderedLength, "maxRenderedLength");
   assertLimit(maxLines, "maxLines");
   assertLimit(maxTokenDepth, "maxTokenDepth");
+  if (styleMode !== "inline" && styleMode !== "class") {
+    throw new TypeError('styleMode must be "inline" or "class"');
+  }
 
   assertSafeCssIdentifier(classPrefix, "class prefix");
   const resolvedTheme = theme ? resolveThemeOrThrow(theme) : undefined;
   if (resolvedTheme) validateThemeForCSS(resolvedTheme, classPrefix);
 
+  const source = hooks || highlightRanges?.length ? getPlainText(tokens, { maxTokenCount, maxTokenDepth }) : undefined;
+  const ranges = highlightRanges?.length ? normalizeHighlightRanges(source!, highlightRanges) : [];
+  const hookContext: RenderHookContext | undefined = hooks ? Object.freeze({
+    source: source!, language, classPrefix, styleMode,
+  }) : undefined;
   const renderContext: RenderContext = {
+    styleMode,
+    openingTags: new Map(),
     maxRenderedLength,
     maxLines,
     maxTokenCount,
     maxTokenDepth,
     activeNodes: new Set<TokenNode>(),
+    hooks, hookContext, offset: 0,
+    ranges, rangeIndex: 0,
+    wordTag: ranges.length ? `<span class="${classPrefix}-word-highlight"${styleMode === "inline" ? ` style="background: var(--${classPrefix}-word-highlight-bg, rgba(127,127,127,.25)); border-radius: 2px"` : ""}>` : "",
     tokenCount: 0,
     lineCount: tokens.length === 0 ? 0 : 1,
     previousWasCR: false,
@@ -79,21 +114,7 @@ export function renderToHTML(tokens: Token[], options: RenderOptions = {}): stri
     throw new RangeError(`Line count exceeds maxLines ${maxLines}`);
   }
 
-  const renderedTokens: string[] = [];
-  let codeHTMLLength = 0;
-  for (const token of tokens) {
-    const rendered = renderToken(
-      token,
-      classPrefix,
-      resolvedTheme,
-      renderContext,
-      0,
-    );
-    codeHTMLLength += rendered.length;
-    assertRenderedLength(codeHTMLLength, maxRenderedLength);
-    renderedTokens.push(rendered);
-  }
-  const codeHTML = renderedTokens.join("");
+  const codeHTML = renderTokens(tokens, classPrefix, resolvedTheme, renderContext, 0);
 
   const highlightSet = highlightLines?.length ? new Set(highlightLines) : null;
   const hasDiffLines = Boolean(
@@ -101,7 +122,7 @@ export function renderToHTML(tokens: Token[], options: RenderOptions = {}): stri
       diffHighlight?.removed?.length ||
       diffHighlight?.modified?.length,
   );
-  const needsLineWrapping = wrapLines || lineNumbers || Boolean(highlightSet) || hasDiffLines;
+  const needsLineWrapping = wrapLines || lineNumbers || Boolean(highlightSet) || hasDiffLines || Boolean(hooks?.line);
 
   if (!wrapCode && !needsLineWrapping) return codeHTML;
 
@@ -115,23 +136,28 @@ export function renderToHTML(tokens: Token[], options: RenderOptions = {}): stri
   if (needsLineWrapping) {
     // Split only when line markup is requested. This avoids an unnecessary
     // second pass for the default rendering path.
-    const lines = splitHTMLIntoLines(codeHTML, maxLines);
+    const lines = splitHTMLIntoLines(codeHTML, maxLines, wrapLines === "source");
+    if (lines.length > maxLines) throw new RangeError(`Line count exceeds maxLines ${maxLines}`);
+    let sourceOffset = 0;
     const renderedLines: string[] = [];
     let bodyLength = 0;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
       const lineNum = i + 1;
+      const displayLine = startLine + i;
+      if (!Number.isSafeInteger(displayLine)) throw new RangeError("Displayed line exceeds the safe integer range");
       const isHighlighted = highlightSet?.has(lineNum) ?? false;
 
       // Build line classes
       const lineClasses = [`${classPrefix}-line`];
+      if (wrapLines === "source") lineClasses.push(`${classPrefix}-line-source`);
       if (isHighlighted) lineClasses.push(`${classPrefix}-line-highlighted`);
       if (diffAdded?.has(lineNum)) lineClasses.push(`${classPrefix}-diff-added`);
       if (diffRemoved?.has(lineNum)) lineClasses.push(`${classPrefix}-diff-removed`);
       if (diffModified?.has(lineNum)) lineClasses.push(`${classPrefix}-diff-modified`);
 
       const lineStyles = ["display: block"];
-      const background = getLineBackground(
+      const background = styleMode === "inline" && getLineBackground(
         resolvedTheme,
         isHighlighted,
         diffAdded?.has(lineNum) ?? false,
@@ -144,23 +170,35 @@ export function renderToHTML(tokens: Token[], options: RenderOptions = {}): stri
       // Diff gutter marker
       let gutterSpan = "";
       if (diffAdded?.has(lineNum)) {
-        gutterSpan = `<span class="${classPrefix}-diff-gutter" aria-hidden="true" style="display: inline-block; width: 1.5em; text-align: center; user-select: none">+</span>`;
+        gutterSpan = `<span class="${classPrefix}-diff-gutter" aria-hidden="true"${styleMode === "inline" ? ' style="display: inline-block; width: 1.5em; text-align: center; user-select: none"' : ""}>+</span>`;
       } else if (diffRemoved?.has(lineNum)) {
-        gutterSpan = `<span class="${classPrefix}-diff-gutter" aria-hidden="true" style="display: inline-block; width: 1.5em; text-align: center; user-select: none">-</span>`;
+        gutterSpan = `<span class="${classPrefix}-diff-gutter" aria-hidden="true"${styleMode === "inline" ? ' style="display: inline-block; width: 1.5em; text-align: center; user-select: none"' : ""}>-</span>`;
       } else if (diffModified?.has(lineNum)) {
-        gutterSpan = `<span class="${classPrefix}-diff-gutter" aria-hidden="true" style="display: inline-block; width: 1.5em; text-align: center; user-select: none">~</span>`;
+        gutterSpan = `<span class="${classPrefix}-diff-gutter" aria-hidden="true"${styleMode === "inline" ? ' style="display: inline-block; width: 1.5em; text-align: center; user-select: none"' : ""}>~</span>`;
       }
 
-      const numberStyle = getLineNumberStyle(
+      const numberStyle = styleMode === "inline" ? getLineNumberStyle(
         resolvedTheme,
         classPrefix,
         isHighlighted,
-      );
+      ) : "";
       const numberSpan = lineNumbers
-        ? `<span class="${classPrefix}-line-number" aria-hidden="true" style="${escapeHTMLAttribute(numberStyle)}">${lineNum}</span>`
+        ? `<span class="${classPrefix}-line-number" aria-hidden="true"${numberStyle ? ` style="${escapeHTMLAttribute(numberStyle)}"` : ""}>${displayLine}</span>`
         : "";
 
-      const renderedLine = `<span class="${lineClasses.join(" ")}" style="${escapeHTMLAttribute(lineStyles.join("; "))}">${gutterSpan}${numberSpan}<span class="${classPrefix}-line-content">${line}</span></span>`;
+      const lineStyle = styleMode === "inline" ? ` style="${escapeHTMLAttribute(lineStyles.join("; "))}"` : "";
+      let opening = `<span class="${lineClasses.join(" ")}"${lineStyle}>`;
+      if (hooks?.line && hookContext) {
+        let end = sourceOffset;
+        while (end < hookContext.source.length && !/[\r\n]/.test(hookContext.source[end]!)) end++;
+        opening = decorateTag(opening, hooks.line(Object.freeze({ ...hookContext,
+          line: lineNum, displayLine, start: sourceOffset, end, highlighted: isHighlighted,
+          added: diffAdded?.has(lineNum) ?? false, removed: diffRemoved?.has(lineNum) ?? false,
+          modified: diffModified?.has(lineNum) ?? false,
+        })));
+        sourceOffset = end + (hookContext.source.startsWith("\r\n", end) ? 2 : end < hookContext.source.length ? 1 : 0);
+      }
+      const renderedLine = `${opening}${gutterSpan}${numberSpan}<span class="${classPrefix}-line-content">${line}</span></span>`;
       bodyLength += renderedLine.length;
       assertRenderedLength(bodyLength, maxRenderedLength);
       renderedLines.push(renderedLine);
@@ -174,11 +212,13 @@ export function renderToHTML(tokens: Token[], options: RenderOptions = {}): stri
 
   // Build wrapper attributes
   const langAttr = language ? ` data-language="${escapeHTMLAttribute(language)}"` : "";
-  const themeCSS = resolvedTheme
+  const themeCSS = resolvedTheme && styleMode === "inline"
     ? ` style="${escapeHTMLAttribute(getThemeInlineStyles(resolvedTheme, classPrefix))}"`
     : "";
 
-  const result = `<pre class="${classPrefix}"${langAttr}${themeCSS}><code class="${classPrefix}-code">${bodyHTML}</code></pre>`;
+  const codeTag = decorateTag(`<code class="${classPrefix}-code">`, hooks?.code && hookContext ? hooks.code(hookContext) : undefined);
+  const preTag = decorateTag(`<pre class="${classPrefix}"${langAttr}${themeCSS}>`, hooks?.pre && hookContext ? hooks.pre(hookContext) : undefined);
+  const result = `${preTag}${codeTag}${bodyHTML}</code></pre>`;
   assertRenderedLength(result.length, maxRenderedLength);
   return result;
 }
@@ -194,10 +234,7 @@ function renderToken(
   depth: number,
 ): string {
   if (typeof token === "string") {
-    countLines(token, context);
-    const escaped = escapeHTML(token);
-    assertRenderedLength(escaped.length, context.maxRenderedLength);
-    return escaped;
+    return renderText(token, context);
   }
 
   if (depth > context.maxTokenDepth) {
@@ -217,24 +254,40 @@ function renderToken(
   context.activeNodes.add(token);
 
   try {
+    const start = context.offset;
+    // Cache only within this render. Mutable themes and token aliases are
+    // validated again on the next call, and no source text is retained.
     const classes = getTokenClasses(token, classPrefix);
-    const classAttr = classes.length > 0 ? ` class="${classes.join(" ")}"` : "";
-    const color = getTokenColor(token, theme);
-    const styleAttr = color
-      ? ` style="${escapeHTMLAttribute(`color: var(--${classPrefix}-${color.tokenType}, ${color.value})`)}"`
-      : "";
+    const key = classes.join(" ");
+    let openingTag = context.openingTags.get(key);
+    if (openingTag === undefined) {
+      const color = getTokenColor(token, theme);
+      // An explicit winning color preserves direct-type/first-alias priority
+      // regardless of the property order in the theme stylesheet.
+      if (context.styleMode === "class" && color && classes.length > 1) {
+        classes.push(`${classPrefix}-color-${color.tokenType}`);
+      }
+      const styleAttr = context.styleMode === "inline" && color
+        ? ` style="${escapeHTMLAttribute(`color: var(--${classPrefix}-${color.tokenType}, ${color.value})`)}"`
+        : "";
+      openingTag = `<span class="${classes.join(" ")}"${styleAttr}>`;
+      context.openingTags.set(key, openingTag);
+    }
 
     let content: string;
     if (typeof token.content === "string") {
-      countLines(token.content, context);
-      content = escapeHTML(token.content);
+      content = renderText(token.content, context);
     } else {
-      content = token.content
-        .map((t) => renderToken(t, classPrefix, theme, context, depth + 1))
-        .join("");
+      content = renderTokens(token.content, classPrefix, theme, context, depth + 1);
     }
 
-    const rendered = `<span${classAttr}${styleAttr}>${content}</span>`;
+    if (context.hooks?.token && context.hookContext) {
+      const aliases = Object.freeze(token.alias ? typeof token.alias === "string" ? [token.alias] : [...token.alias] : []);
+      openingTag = decorateTag(openingTag, context.hooks.token(Object.freeze({ ...context.hookContext,
+        type: token.type, aliases, depth, start, end: context.offset,
+      })));
+    }
+    const rendered = `${openingTag}${content}</span>`;
     assertRenderedLength(rendered.length, context.maxRenderedLength);
     return rendered;
   } finally {
@@ -242,7 +295,59 @@ function renderToken(
   }
 }
 
+function renderTokens(tokens: Token[], prefix: string, theme: Theme | undefined, context: RenderContext, depth: number): string {
+  const parts: string[] = [];
+  let length = 0;
+  for (let index = 0; index < tokens.length; index++) {
+    let token = tokens[index]!;
+    // Adjacent plain leaves can split a surrogate pair. Join them before adding markup.
+    if (context.ranges.length && typeof token === "string" && typeof tokens[index + 1] === "string") {
+      const strings = [token];
+      while (typeof tokens[index + 1] === "string") strings.push(tokens[++index] as string);
+      token = strings.join("");
+    }
+    const html = renderToken(token, prefix, theme, context, depth);
+    length += html.length;
+    assertRenderedLength(length, context.maxRenderedLength);
+    parts.push(html);
+  }
+  return parts.join("");
+}
+
+function renderText(text: string, context: RenderContext): string {
+  const start = context.offset;
+  countLines(text, context);
+  if (!context.ranges.length) {
+    const escaped = escapeHTML(text);
+    assertRenderedLength(escaped.length, context.maxRenderedLength);
+    return escaped;
+  }
+  const parts: string[] = [];
+  let cursor = 0;
+  let length = 0;
+  const append = (html: string): void => {
+    length += html.length;
+    assertRenderedLength(length, context.maxRenderedLength);
+    parts.push(html);
+  };
+  while (cursor < text.length) {
+    let range = context.ranges[context.rangeIndex];
+    while (range && range.end <= start + cursor) range = context.ranges[++context.rangeIndex];
+    if (!range || range.start >= start + text.length) { append(escapeHTML(text.slice(cursor))); break; }
+    const from = Math.max(cursor, range.start - start);
+    const to = Math.min(text.length, range.end - start);
+    append(escapeHTML(text.slice(cursor, from)));
+    // Terminators stay outside word spans, so line wrapping cannot create empty highlights.
+    const selected = text.slice(from, to);
+    const chunks = selected.match(/[^\r\n]+|\r\n|\r|\n/g) ?? [];
+    for (const chunk of chunks) append(/^[\r\n]/.test(chunk) ? chunk : context.wordTag + escapeHTML(chunk) + "</span>");
+    cursor = to;
+  }
+  return parts.join("");
+}
+
 function countLines(text: string, context: RenderContext): void {
+  if (context.hooks || context.ranges.length) context.offset += text.length;
   for (let index = 0; index < text.length; index++) {
     if (text[index] === "\n") {
       if (context.previousWasCR) {
@@ -421,12 +526,13 @@ export function getThemeStylesheet(theme: Theme | string, classPrefix = DEFAULT_
  * At each newline boundary, any open tags are closed and reopened on the next line
  * so that each line is a self-contained HTML fragment with valid nesting.
  */
-function splitHTMLIntoLines(html: string, maxLines: number): string[] {
+function splitHTMLIntoLines(html: string, maxLines: number, preserveBreaks = false): string[] {
   const lines: string[] = [];
   let currentLine = "";
   // Stack of open tag strings (e.g. '<span class="neo-hl-keyword">')
   const openTags: string[] = [];
   let previousBoundaryWasCR = false;
+  let hasText = false;
 
   let i = 0;
   while (i < html.length) {
@@ -434,6 +540,7 @@ function splitHTMLIntoLines(html: string, maxLines: number): string[] {
       const boundary = html[i]!;
       if (boundary === "\n" && previousBoundaryWasCR) {
         previousBoundaryWasCR = false;
+        if (preserveBreaks) lines[lines.length - 1] += "\n";
         i++;
         continue;
       }
@@ -441,7 +548,8 @@ function splitHTMLIntoLines(html: string, maxLines: number): string[] {
       for (let t = openTags.length - 1; t >= 0; t--) {
         currentLine += "</span>";
       }
-      lines.push(currentLine);
+      lines.push(currentLine + (preserveBreaks ? boundary === "\r" ? "&#13;" : "\n" : ""));
+      hasText = false;
       if (lines.length >= maxLines) {
         throw new RangeError(`Line count exceeds maxLines ${maxLines}`);
       }
@@ -479,12 +587,13 @@ function splitHTMLIntoLines(html: string, maxLines: number): string[] {
       i = closeIdx + 1;
     } else {
       previousBoundaryWasCR = false;
+      hasText = true;
       currentLine += html[i];
       i++;
     }
   }
 
-  // Push the last line
-  lines.push(currentLine);
+  // A terminal newline already occupies its physical row in source layout.
+  if (!preserveBreaks || hasText) lines.push(currentLine);
   return lines;
 }

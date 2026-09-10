@@ -64,6 +64,7 @@ const CSS_COLOR_FUNCTIONS = [
 
 /** Escape text for an HTML text node. */
 export function escapeHTML(value: string): string {
+  if (!/[&<>"']/.test(value)) return value;
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

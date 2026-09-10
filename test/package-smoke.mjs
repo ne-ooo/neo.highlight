@@ -10,6 +10,7 @@ import {
   realpath,
   rm,
   symlink,
+  writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -69,6 +70,23 @@ try {
     access(join(packageDirectory, ".lpm", "audit-cache.json")),
   );
 
+  runNode(["--input-type=module", "--eval", `
+    import assert from "node:assert/strict";
+    import { createRequire } from "node:module";
+    import { tokenize } from "@lpm.dev/neo.highlight";
+    import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
+    const require = createRequire(import.meta.url);
+    for (const api of [await import("@lpm.dev/neo.highlight/experimental"), require("@lpm.dev/neo.highlight/experimental")]) {
+      const stream = api.createJavaScriptStream();
+      let tokens = api.applyJavaScriptTokenUpdate([], stream.append("const value = 1;"));
+      tokens = api.applyJavaScriptTokenUpdate(tokens, stream.finish());
+      assert.deepEqual(tokens, tokenize("const value = 1;", javascript));
+      const document = api.createJavaScriptDocument("const value = 1;");
+      assert.deepEqual(document.snapshot().tokens, tokens);
+      document.dispose(); api.createJavaScriptSessionHandler().dispose();
+    }
+  `]);
+
   runNode([
     "--input-type=module",
     "--eval",
@@ -82,6 +100,10 @@ try {
       import { highlight } from "@lpm.dev/neo.highlight/vanilla";
       import { Highlight } from "@lpm.dev/neo.highlight/react";
       import { handleHighlightWorkerRequest } from "@lpm.dev/neo.highlight/worker";
+      import { createHighlightWorkerHandler } from "@lpm.dev/neo.highlight/worker/core";
+      import { createHighlightWorkerClient } from "@lpm.dev/neo.highlight/worker/client";
+      assert.equal(typeof createHighlightWorkerClient, "function");
+      assert.equal(createHighlightWorkerHandler({ grammars: [javascript] })({ id: 2, code: "x", language: "js" }).ok, true);
 
       assert.equal(groupedGrammar, javascript);
       assert.equal(groupedTheme, githubDark);
@@ -112,6 +134,10 @@ try {
       const { highlight } = require("@lpm.dev/neo.highlight/vanilla");
       const { Highlight } = require("@lpm.dev/neo.highlight/react");
       const { handleHighlightWorkerRequest } = require("@lpm.dev/neo.highlight/worker");
+      const { createHighlightWorkerHandler } = require("@lpm.dev/neo.highlight/worker/core");
+      const { createHighlightWorkerClient } = require("@lpm.dev/neo.highlight/worker/client");
+      assert.equal(typeof createHighlightWorkerClient, "function");
+      assert.equal(createHighlightWorkerHandler({ grammars: [javascript] })({ id: 2, code: "x", language: "js" }).ok, true);
 
       assert.equal(groupedGrammar, javascript);
       assert.equal(groupedTheme, githubDark);
@@ -130,7 +156,16 @@ try {
     `,
   ]);
 
-  console.log("Built ESM and CommonJS package consumers passed");
+  for (const extension of ["ts", "cts"]) {
+    await cp(join(packageRoot, "test/worker-fixtures/consumer.ts"), join(consumerRoot, `worker.${extension}`));
+  }
+  await writeFile(join(consumerRoot, "package.json"), '{"type":"module"}');
+  await writeFile(join(consumerRoot, "tsconfig.json"), JSON.stringify({ compilerOptions: {
+    target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", lib: ["ES2022", "DOM"],
+    strict: true, exactOptionalPropertyTypes: true, noEmit: true, skipLibCheck: false, types: [],
+  }, include: ["worker.ts", "worker.cts"] }));
+  runNode([join(packageRoot, "node_modules/typescript/bin/tsc"), "-p", join(consumerRoot, "tsconfig.json")]);
+  console.log("Built ESM, CommonJS, and strict worker declaration consumers passed");
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
 }

@@ -1,12 +1,9 @@
 import type { Grammar } from "../core/types";
 import { typescript } from "./typescript";
-import { jsx } from "./jsx";
+import { withJavaScriptExpressions } from "./shared/javascript-tokens";
 
 export const tsx: Grammar = {
   name: "tsx",
   aliases: [],
-  tokens: {
-    ...typescript.tokens,
-    tag: jsx.tokens["tag"]!,
-  },
+  tokens: withJavaScriptExpressions(typescript.tokens, true),
 };

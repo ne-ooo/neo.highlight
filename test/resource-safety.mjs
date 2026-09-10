@@ -3,6 +3,12 @@ import { spawnSync } from "node:child_process";
 
 const source = String.raw`
   import { renderToHTML, tokenize } from "./dist/index.js";
+  import { javascript } from "./dist/grammars/javascript.js";
+  import { python } from "./dist/grammars/python.js";
+  import { css } from "./dist/grammars/css.js";
+  import { vue } from "./dist/grammars/vue.js";
+  import { svelte } from "./dist/grammars/svelte.js";
+  import { tsx } from "./dist/grammars/tsx.js";
 
   const expectLimit = (run, limitName) => {
     try {
@@ -14,10 +20,34 @@ const source = String.raw`
     throw new Error("Expected " + limitName + " to reject adversarial input");
   };
 
+  expectLimit(() => tokenize('f"{'.repeat(25_000), python), "maxTokenDepth");
+  expectLimit(() => tokenize('f"{x:' + "{".repeat(25_000), python), "maxTokenDepth");
+  expectLimit(() => tokenize('a { x: fn(' + "(".repeat(25_000), css), "maxTokenDepth");
+  for (const grammar of [vue, svelte]) {
+    const prefix = grammar === vue ? "{{ " : "{ ";
+    const nested = String.fromCharCode(96) + "x $" + "{";
+    expectLimit(() => tokenize(prefix + nested.repeat(25_000), grammar), "maxTokenDepth");
+    expectLimit(() => tokenize('<script>const x = 1;</script>', grammar, { maxTokenCount: 1 }), "maxTokenCount");
+  }
+  expectLimit(
+    () => renderToHTML([{ type: "keyword", content: "const", length: 5 }], {
+      hooks: { token: () => ({ attributes: { title: "x".repeat(100_000) } }) },
+      maxRenderedLength: 1000,
+    }), "maxRenderedLength",
+  );
   const denseGrammar = {
     name: "dense",
     tokens: { first: /a/g, second: /b/g },
   };
+  for (const grammar of [javascript, tsx]) {
+    const nestedTemplates = String.fromCharCode(96) + "value $" + "{";
+    expectLimit(
+      () => tokenize(nestedTemplates.repeat(25_000), grammar),
+      "maxTokenDepth",
+    );
+    const nestedJsx = "<A value={".repeat(20_000);
+    if (grammar === tsx) expectLimit(() => tokenize(nestedJsx, grammar), "maxTokenDepth");
+  }
   expectLimit(
     () => tokenize("ab".repeat(125_000), denseGrammar),
     "maxMatchCount",
@@ -28,6 +58,16 @@ const source = String.raw`
     content: "x",
     length: 1,
   }));
+  expectLimit(
+    () => renderToHTML([{ type: "outer", content: nodes, length: nodes.length }], {
+      highlightRanges: [{ start: 0, end: nodes.length }],
+      maxRenderedLength: 100_000,
+    }), "maxRenderedLength",
+  );
+  expectLimit(
+    () => renderToHTML(["x"], { highlightRanges: Array.from({ length: 257 }, () => ({ start: 0, end: 1 })) }),
+    "highlightRanges",
+  );
   expectLimit(
     () => renderToHTML(nodes, {
       wrapCode: false,

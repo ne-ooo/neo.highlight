@@ -26,7 +26,7 @@ export interface TokenPattern {
   /** The regex pattern to match */
   pattern: RegExp;
   /** Optional linear matcher for constructs that cannot be scanned safely by one regex. */
-  matcher?: ((source: string) => Iterable<TokenPatternMatch>) | undefined;
+  matcher?: ((source: string, context?: TokenMatcherContext) => Iterable<TokenPatternMatch>) | undefined;
   /** If true, the pattern takes priority and prevents other tokens from matching inside it */
   greedy?: boolean;
   /** Optional lookbehind — if true, the first captured group is treated as lookbehind */
@@ -43,6 +43,12 @@ export interface TokenPatternMatch {
   index: number;
   /** Exact source text for the token. */
   text: string;
+}
+
+/** Read-only nesting budget for custom lexical scanners. */
+export interface TokenMatcherContext {
+  readonly depth: number;
+  readonly maxTokenDepth: number;
 }
 
 /**
@@ -143,24 +149,87 @@ export interface Theme {
   diffModifiedBg?: string;
 }
 
+/** Additive attributes for a generated span, code, or pre element. */
+export interface RenderAttributes {
+  /** Classes are appended to the renderer's classes. */
+  class?: string | readonly string[] | undefined;
+  /** Only id, title, role, tabindex, data-*, and aria-* attributes are accepted. */
+  attributes?: Readonly<Record<string, string | number | boolean | undefined>> | undefined;
+}
+
+export interface RenderHookContext {
+  readonly source: string;
+  readonly language: string | undefined;
+  readonly classPrefix: string;
+  readonly styleMode: "inline" | "class";
+}
+
+export interface TokenRenderContext extends RenderHookContext {
+  readonly type: string;
+  readonly aliases: readonly string[];
+  readonly depth: number;
+  /** Exact UTF-16 source bounds, independent of the token's length field. */
+  readonly start: number;
+  readonly end: number;
+}
+
+export interface LineRenderContext extends RenderHookContext {
+  /** One-based source line. Highlights and diffs use this number. */
+  readonly line: number;
+  readonly displayLine: number;
+  /** Source bounds exclude the line terminator. */
+  readonly start: number;
+  readonly end: number;
+  readonly highlighted: boolean;
+  readonly added: boolean;
+  readonly removed: boolean;
+  readonly modified: boolean;
+}
+
+/** Synchronous decorators. They add attributes without replacing source text or HTML. */
+export interface RenderHooks {
+  /** Runs once per structured token, after its children. Multiline spans retain these attributes on each line. */
+  token?: ((context: TokenRenderContext) => RenderAttributes | void) | undefined;
+  /** Requests line wrappers, including when wrapCode is false. */
+  line?: ((context: LineRenderContext) => RenderAttributes | void) | undefined;
+  /** Runs on the code wrapper when wrapCode is true. */
+  code?: ((context: RenderHookContext) => RenderAttributes | void) | undefined;
+  /** Runs on the pre wrapper when wrapCode is true. */
+  pre?: ((context: RenderHookContext) => RenderAttributes | void) | undefined;
+}
+
 /**
  * Options for HTML rendering.
  */
+/** Half-open bounds in the original source, counted in UTF-16 code units. */
+export interface HighlightRange {
+  readonly start: number;
+  readonly end: number;
+}
+
 export interface RenderOptions {
   /** Theme to apply (object or name for registry lookup) */
   theme?: Theme | string | undefined;
+  /** Inline styles (default), or classes with a separately supplied theme stylesheet. */
+  styleMode?: "inline" | "class" | undefined;
   /** Show line numbers */
   lineNumbers?: boolean | undefined;
+  /** First displayed line number (default: 1). Source line selection remains one-based. */
+  startLine?: number | undefined;
+  /** Structured token, line, and wrapper decorators. */
+  hooks?: RenderHooks | undefined;
   /** Lines to highlight (1-indexed) */
   highlightLines?: number[] | undefined;
+  /** Selected source spans. At most 256 ranges; overlaps and adjacent ranges merge. */
+  highlightRanges?: readonly HighlightRange[] | undefined;
   /** Language name for the data attribute */
   language?: string | undefined;
   /** CSS class prefix (default: "neo-hl") */
   classPrefix?: string | undefined;
   /** Wrap in <pre><code> tags (default: true) */
   wrapCode?: boolean | undefined;
-  /** Render per-line spans without requiring a <pre><code> wrapper (default: false) */
-  wrapLines?: boolean | undefined;
+  /** Per-line spans. "source" retains line endings as text and omits the empty row after a final newline. Default: false. */
+  wrapLines?: boolean | "source" | undefined;
   /** Line diff highlighting (added/removed/modified lines) */
   diffHighlight?: DiffHighlight | undefined;
   /** Maximum token nodes traversed while rendering (default: 100,000). */
@@ -190,6 +259,8 @@ export interface DiffHighlight {
  * Options for the auto-scan engine.
  */
 export interface ScanOptions {
+  /** Class output requires a theme stylesheet. observe() supplies it when a theme is set. */
+  styleMode?: "inline" | "class" | undefined;
   /** CSS selector for code elements (default: "pre code") */
   selector?: string | undefined;
   /** Available grammars for highlighting */

@@ -339,6 +339,17 @@ describe("tokenize", () => {
     ]);
   });
 
+  it("passes the current nesting budget to custom matchers", () => {
+    const contexts: unknown[] = [];
+    const grammar: Grammar = { name: "matcher-context", tokens: {
+      outer: { pattern: /a/, inside: { inner: { pattern: /a/,
+        matcher: (source, context) => { contexts.push(context); return [{ index: 0, text: source }]; },
+      } } },
+    } };
+    expect(getPlainText(tokenize("a", grammar, { maxTokenDepth: 3 }))).toBe("a");
+    expect(contexts).toEqual([{ depth: 1, maxTokenDepth: 3 }]);
+  });
+
   it("should reject cyclic public token trees when extracting text", () => {
     const node: TokenNode = {
       type: "cycle",

@@ -1,0 +1,339 @@
+{
+  "shared": [
+    {
+      "name": "function declarations permit a following regex statement",
+      "code": "function declared() {} /after/.test(value);",
+      "regexes": [
+        "/after/"
+      ]
+    },
+    {
+      "name": "named function expressions end a value",
+      "code": "const value = function named() { return 1; } / divisor / scale;",
+      "regexes": []
+    },
+    {
+      "name": "anonymous function expressions end a value",
+      "code": "const value = function () {} / 2 / 3;",
+      "regexes": []
+    },
+    {
+      "name": "async and generator expressions end values",
+      "code": "const a = async function () {} / 2; const b = function* () {} / 3;",
+      "regexes": []
+    },
+    {
+      "name": "async and generator declarations permit regex statements",
+      "code": "async function a() {} /one/.test(value); function* b() {} /two/.test(value);",
+      "regexes": [
+        "/one/",
+        "/two/"
+      ]
+    },
+    {
+      "name": "class declarations permit regex statements",
+      "code": "class Example extends Base {} /after/.test(value);",
+      "regexes": [
+        "/after/"
+      ]
+    },
+    {
+      "name": "anonymous and named class expressions end values",
+      "code": "const a = class {} / 2; const b = class Named extends Base {} / 3;",
+      "regexes": []
+    },
+    {
+      "name": "class heritage expressions retain their nested bodies",
+      "code": "class Example extends factory(function () {}, class {}) {} /after/.test(value);",
+      "regexes": [
+        "/after/"
+      ]
+    },
+    {
+      "name": "nested object methods preserve their enclosing expression",
+      "code": "const a = function () { return { method() { return /inside/; } }; } / divisor / scale;",
+      "regexes": [
+        "/inside/"
+      ]
+    },
+    {
+      "name": "declarations inside blocks retain statement position",
+      "code": "if (ready) { class Nested {} /inside/.test(value); } /outside/.test(value);",
+      "regexes": [
+        "/inside/",
+        "/outside/"
+      ]
+    },
+    {
+      "name": "export default function and class declarations permit regex statements",
+      "code": "export default function named() {} /after/.test(value);",
+      "regexes": [
+        "/after/"
+      ]
+    },
+    {
+      "name": "labels and control statements permit regex statements",
+      "code": "label: { work(); } /after/.test(value); if (ready) /yes/.test(value);",
+      "regexes": [
+        "/after/",
+        "/yes/"
+      ]
+    },
+    {
+      "name": "for await body starts a statement",
+      "code": "async function read() { for await (const item of items) /value/.test(item); }",
+      "regexes": [
+        "/value/"
+      ]
+    },
+    {
+      "name": "parenthesized arrows and object values still use division",
+      "code": "const value = (() => {}) / 2; const object = ({ value: 1 }) / 3;",
+      "regexes": []
+    },
+    {
+      "name": "function expressions cannot consume a host closing brace as regex text",
+      "code": "`value ${function () {} / 2} after ${true}`",
+      "regexes": [],
+      "spans": [
+        [
+          "interpolation",
+          "${function () {} / 2}"
+        ],
+        [
+          "interpolation",
+          "${true}"
+        ],
+        [
+          "boolean",
+          "true"
+        ]
+      ]
+    },
+    {
+      "name": "escaped function names retain their complete spelling",
+      "code": "function \\u0066oo() { return true; } \\u0066oo(); caf\\u{e9}();",
+      "regexes": [],
+      "spans": [
+        [
+          "function",
+          "\\u0066oo"
+        ],
+        [
+          "function",
+          "caf\\u{e9}"
+        ]
+      ]
+    },
+    {
+      "name": "escaped members and Unicode code points do not split tokens",
+      "code": "object.\\u0072eturn / divisor / scale; const \\u{10400}name = 1; \\u{10400}name();",
+      "regexes": [],
+      "spans": [
+        [
+          "function",
+          "\\u{10400}name",
+          1
+        ]
+      ],
+      "absent": [
+        [
+          "keyword",
+          "return"
+        ]
+      ]
+    },
+    {
+      "name": "escaped and non-ASCII class names retain complete spans",
+      "code": "class Caf\\u00e9 extends \\u0042ase {} class Δelta {}",
+      "regexes": [],
+      "spans": [
+        [
+          "class-name",
+          "Caf\\u00e9"
+        ],
+        [
+          "class-name",
+          "\\u0042ase"
+        ],
+        [
+          "class-name",
+          "Δelta"
+        ]
+      ]
+    },
+    {
+      "name": "incomplete function expression inside template preserves its boundary",
+      "code": "`value ${function () {} / 2",
+      "regexes": [],
+      "spans": [
+        [
+          "interpolation",
+          "${function () {} / 2"
+        ]
+      ]
+    },
+    {
+      "name": "a line break after return begins a new declaration",
+      "code": "function outer() { return\nfunction inner() {} /after/.test(value); }",
+      "regexes": [
+        "/after/"
+      ]
+    },
+    {
+      "name": "line breaks separate declarations from previous values",
+      "code": "const value = 1\nclass Example {} /after/.test(value);",
+      "regexes": [
+        "/after/"
+      ]
+    },
+    {
+      "name": "computed class members and static blocks preserve the enclosing body",
+      "code": "class Example { [name]() { return /inside/; } static { const value = class {} / 2; } } /after/.test(value);",
+      "regexes": [
+        "/inside/",
+        "/after/"
+      ]
+    }
+  ],
+  "tsx": [
+    {
+      "name": "comments before a trailing generic comma",
+      "code": "const id = <T /* type */,>(value: T) => value; const view = <Box/>;",
+      "regexes": [],
+      "spans": [
+        [
+          "comment",
+          "/* type */"
+        ],
+        [
+          "tag",
+          "<Box/>"
+        ]
+      ]
+    },
+    {
+      "name": "newline before a trailing generic comma",
+      "code": "const id = <T\n,>(value: T) => value; const view = <Box/>;",
+      "regexes": [],
+      "spans": [
+        [
+          "tag",
+          "<Box/>"
+        ]
+      ]
+    },
+    {
+      "name": "comments before a generic constraint",
+      "code": "const id = <T /* gap */ extends Record<string, number>>(value: T) => value; const view = <Box/>;",
+      "regexes": [],
+      "spans": [
+        [
+          "comment",
+          "/* gap */"
+        ],
+        [
+          "keyword",
+          "extends"
+        ],
+        [
+          "builtin",
+          "number"
+        ],
+        [
+          "tag",
+          "<Box/>"
+        ]
+      ]
+    },
+    {
+      "name": "const type parameters with a trailing comma",
+      "code": "const id = <const T,>(value: T) => value; const view = <Box/>;",
+      "regexes": [],
+      "spans": [
+        [
+          "tag",
+          "<Box/>"
+        ]
+      ]
+    },
+    {
+      "name": "comments inside generic components remain code",
+      "code": "const view = <Box<Record<string, /* gap */ number>> value={1} />;",
+      "regexes": [],
+      "spans": [
+        [
+          "type-arguments",
+          "<Record<string, /* gap */ number>>"
+        ],
+        [
+          "comment",
+          "/* gap */"
+        ],
+        [
+          "number",
+          "1"
+        ]
+      ]
+    },
+    {
+      "name": "boolean and named extends attributes remain JSX",
+      "code": "const view = <Box title=\"ok\" extends />; const other = <Box extends={true} />;",
+      "regexes": [],
+      "spans": [
+        [
+          "tag",
+          "<Box title=\"ok\" extends />"
+        ],
+        [
+          "tag",
+          "<Box extends={true} />"
+        ],
+        [
+          "boolean",
+          "true"
+        ]
+      ]
+    }
+  ],
+  "jsx": [
+    {
+      "name": "ordinary JSX boolean attributes are not generic parameters",
+      "code": "const view = <Box extends value={true}>text</Box>;",
+      "regexes": [],
+      "spans": [
+        [
+          "tag",
+          "<Box extends value={true}>"
+        ],
+        [
+          "boolean",
+          "true"
+        ],
+        [
+          "plain-text",
+          "text"
+        ]
+      ]
+    }
+  ],
+  "typed": [
+    {
+      "name": "return type object braces do not consume a declaration body",
+      "code": "function example(): { value: number } { return {value: 1}; } /after/.test(value);",
+      "regexes": [
+        "/after/"
+      ]
+    },
+    {
+      "name": "return type object braces do not turn an expression into a declaration",
+      "code": "const example = function(): { value: number } { return {value: 1}; } / divisor / scale;",
+      "regexes": []
+    },
+    {
+      "name": "generic return types retain nested object shapes",
+      "code": "const example = function(): Promise<{ value: number }> { return resolve({value: 1}); } / divisor / scale;",
+      "regexes": []
+    }
+  ]
+}

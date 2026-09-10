@@ -1,0 +1,313 @@
+{
+  "html": [
+    {
+      "name": "HTML ignores self-closing slashes on scripts",
+      "code": "<script/>const value = 1;</script><p>after</p>",
+      "spans": [
+        [
+          "script",
+          "const value = 1;"
+        ],
+        [
+          "keyword",
+          "const"
+        ],
+        [
+          "tag",
+          "<p>"
+        ]
+      ]
+    },
+    {
+      "name": "HTML ignores self-closing slashes on RCDATA",
+      "code": "<textarea/>literal <b>&amp;</textarea><p>after</p>",
+      "spans": [
+        [
+          "plain-text",
+          "literal <b>&amp;"
+        ],
+        [
+          "entity",
+          "&amp;"
+        ],
+        [
+          "tag",
+          "<p>"
+        ]
+      ],
+      "absent": [
+        [
+          "tag",
+          "<b>"
+        ]
+      ]
+    },
+    {
+      "name": "unquoted attribute values retain their terminal slash",
+      "code": "<script src=main.js/>const value = 1;</script>",
+      "spans": [
+        [
+          "attr-value",
+          "=main.js/"
+        ],
+        [
+          "script",
+          "const value = 1;"
+        ]
+      ]
+    },
+    {
+      "name": "double-escaped script closing text is not an end tag",
+      "code": "<script><!--\n<script>const hidden = 1;</script>\n-->\nconst after = 2;</script><p>outside</p>",
+      "spans": [
+        [
+          "script",
+          "<!--\n<script>const hidden = 1;</script>\n-->\nconst after = 2;"
+        ],
+        [
+          "tag",
+          "<p>"
+        ]
+      ]
+    },
+    {
+      "name": "double-escape script names are case-insensitive",
+      "code": "<script><!--<ScRiPt>inside</sCrIpT> outside</script><p>after</p>",
+      "spans": [
+        [
+          "script",
+          "<!--<ScRiPt>inside</sCrIpT> outside"
+        ],
+        [
+          "tag",
+          "<p>"
+        ]
+      ]
+    },
+    {
+      "name": "near-miss script names do not enter double escape",
+      "code": "<script><!--<scriptish>text</script><p>after</p>",
+      "spans": [
+        [
+          "script",
+          "<!--<scriptish>text"
+        ],
+        [
+          "tag",
+          "<p>"
+        ]
+      ]
+    },
+    {
+      "name": "unfinished double-escaped scripts keep their source context",
+      "code": "<script><!--<script>text</script>",
+      "spans": [
+        [
+          "script",
+          "<!--<script>text</script>"
+        ]
+      ]
+    },
+    {
+      "name": "dash-dash-greater-than exits double escape",
+      "code": "<script><!--<script> --> const value = 1;</script><p>after</p>",
+      "spans": [
+        [
+          "script",
+          "<!--<script> --> const value = 1;"
+        ],
+        [
+          "tag",
+          "<p>"
+        ]
+      ]
+    }
+  ],
+  "vue": [
+    {
+      "name": "function division does not consume interpolation delimiters",
+      "code": "<div>{{ function () {} / 2 }} tail {{ true }}</div>",
+      "spans": [
+        [
+          "interpolation",
+          "{{ function () {} / 2 }}"
+        ],
+        [
+          "interpolation",
+          "{{ true }}"
+        ],
+        [
+          "boolean",
+          "true"
+        ]
+      ]
+    },
+    {
+      "name": "RCDATA interpolations share expression boundaries",
+      "code": "<textarea>{{ function () {} / 2 }} &amp;</textarea>",
+      "spans": [
+        [
+          "interpolation",
+          "{{ function () {} / 2 }}"
+        ],
+        [
+          "entity",
+          "&amp;"
+        ]
+      ]
+    },
+    {
+      "name": "a stray single brace does not close a Vue interpolation",
+      "code": "<div>{{ value } + suffix }}</div>",
+      "spans": [
+        [
+          "interpolation",
+          "{{ value } + suffix }}"
+        ]
+      ]
+    },
+    {
+      "name": "an unfinished interpolation does not expose apparent host tags",
+      "code": "<div>{{ value } <b>unfinished",
+      "spans": [
+        [
+          "interpolation",
+          "{{ value } <b>unfinished"
+        ]
+      ],
+      "absent": [
+        [
+          "tag",
+          "<b>"
+        ]
+      ]
+    },
+    {
+      "name": "objects strings and regex classes protect closing braces",
+      "code": "<div>{{ { text: \"}}\", value: /[}]/.test(value) } }}</div>",
+      "spans": [
+        [
+          "interpolation",
+          "{{ { text: \"}}\", value: /[}]/.test(value) } }}"
+        ],
+        [
+          "string",
+          "\"}}\""
+        ],
+        [
+          "regex",
+          "/[}]/"
+        ]
+      ]
+    },
+    {
+      "name": "v-pre remains active across otherwise malformed interpolation text",
+      "code": "<div v-pre>{{ value } <b>literal</b></div>{{ true }}",
+      "spans": [
+        [
+          "tag",
+          "<b>"
+        ],
+        [
+          "interpolation",
+          "{{ true }}"
+        ],
+        [
+          "boolean",
+          "true"
+        ]
+      ],
+      "absent": [
+        [
+          "interpolation",
+          "{{ value }"
+        ]
+      ]
+    }
+  ],
+  "svelte": [
+    {
+      "name": "function division in attributes preserves following expressions",
+      "code": "<p value={function () {} / 2}>{true}</p>",
+      "spans": [
+        [
+          "expression",
+          "{function () {} / 2}"
+        ],
+        [
+          "expression",
+          "{true}"
+        ],
+        [
+          "boolean",
+          "true"
+        ]
+      ]
+    },
+    {
+      "name": "quoted attributes retain nested JavaScript strings",
+      "code": "<div title=\"before {format({text: \"}\"})} after\">{true}</div>",
+      "spans": [
+        [
+          "expression",
+          "{format({text: \"}\"})}"
+        ],
+        [
+          "string",
+          "\"}\""
+        ],
+        [
+          "boolean",
+          "true"
+        ]
+      ]
+    },
+    {
+      "name": "block tags retain nested regex and function expressions",
+      "code": "{#if /[}]/.test(value)}<p>{function () {} / 2}</p>{/if}",
+      "spans": [
+        [
+          "regex",
+          "/[}]/"
+        ],
+        [
+          "expression",
+          "{function () {} / 2}"
+        ],
+        [
+          "block",
+          "{/if}"
+        ]
+      ]
+    },
+    {
+      "name": "TypeScript host selection persists after a script body",
+      "code": "<script lang=\"ts\">const value: number = 2;</script>{value as number}",
+      "spans": [
+        [
+          "keyword",
+          "as"
+        ],
+        [
+          "builtin",
+          "number",
+          1
+        ]
+      ]
+    },
+    {
+      "name": "unfinished quoted attribute expressions retain nested code",
+      "code": "<p title=\"{value + 2",
+      "spans": [
+        [
+          "expression",
+          "{value + 2"
+        ],
+        [
+          "number",
+          "2"
+        ]
+      ]
+    }
+  ]
+}

@@ -1,10 +1,11 @@
 import type { Grammar } from "../core/types";
 import { javascript } from "./javascript";
+import { withJavaScriptExpressions } from "./shared/javascript-tokens";
 
 export const typescript: Grammar = {
   name: "typescript",
   aliases: ["ts", "mts", "cts"],
-  tokens: {
+  tokens: withJavaScriptExpressions({
     ...javascript.tokens,
     "class-name": {
       pattern: /(\b(?:class|extends|implements|instanceof|interface|new|type)\s+)[\w.\\]+/,
@@ -16,5 +17,5 @@ export const typescript: Grammar = {
       pattern: /\b[a-zA-Z_$][\w$]*(?=\s*<(?:[^<>]|<[^<>]*>)*>\s*\()/,
       alias: "function",
     },
-  },
+  }),
 };

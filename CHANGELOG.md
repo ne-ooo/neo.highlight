@@ -4,7 +4,88 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [1.4.0] - Unreleased
+
+- Update Vitest to 4.1.11 for GHSA-82fw-gwwq-j7x9. Built package and worker checks retain Node 18 coverage.
+
+- Add opt-in `wrapLines: "source"` for physical code rows with preserved line endings and bounded rendering.
+
+### Experimental incremental processing
+
+- Added JS/TS streams with highlighted provisional suffixes, complete-input parity, and cumulative resource budgets.
+- Added edit sessions with checkpoints, suffix reuse, revision checks, and isolated token updates.
+- Added a bounded worker-session handler and a token-update helper through the optional `experimental` entry.
+
+See [incremental processing](./docs/incremental.md) for supported languages, resource limits, and protocol boundaries.
+
+### Workers
+
+- Added a selected-grammar worker factory and explicit listener installation through `worker/core`.
+- Added a Promise client with bounded queues, source budgets, aborts, replacement keys, and queue-inclusive deadlines.
+- Active cancellation and deadlines terminate the worker. Queued requests continue in a replacement worker with their original deadlines.
+- Added worker failure recovery, stale-response rejection, deterministic disposal, and worker-side resource ceilings.
+- Preserved the all-grammar worker entry, message protocol, and synchronous APIs.
+
+See [background highlighting](./docs/workers.md) for ownership, error handling, and runtime limits.
+
+### Word highlighting
+
+- Added bounded UTF-16 source ranges with overlap merging and Unicode boundary checks.
+- Added word backgrounds across nested tokens and lines, with unchanged source text and hook offsets.
+- Added React range updates without repeated tokenization, plus single and dual theme styles.
+
+See [word highlighting](./docs/word-highlighting.md) for offsets, adapters, and limits.
+
+### Rendering hooks
+
+- Added synchronous token, line, code, and pre decorators with validated classes and escaped attributes.
+- Added exact source offsets and displayed line offsets through `startLine`.
+- Added React forwarding without repeated tokenization for rendering changes.
+- Kept resource limits active for decorated output and empty line wrappers.
+
+See [rendering hooks](./docs/render-hooks.md) for callback order and supported attributes.
+
+### Fixed
+
+- Function and class expressions retain division context, including selected typed return annotations and nested heritage expressions.
+- Escaped JavaScript identifiers retain complete spans. TSX generic arrows support trivia, constraints, defaults, and `const` parameters.
+- HTML handles escaped script states and raw-text self-closing slashes. Incomplete Vue interpolations preserve host boundaries.
+- Added 120 exact-span regression cases across JavaScript, TypeScript, JSX, TSX, HTML, Vue, and Svelte.
+
+- Python f-strings retain nested fields, format specifications, conversions, debug expressions, and Python 3.12 quote reuse.
+- CSS preserves multiline selectors, declaration boundaries, escaped identifiers, custom-property blocks, strings, and URLs.
+- HTML protects quoted attributes and raw-text boundaries, with embedded JavaScript, JSON, and CSS tokens.
+- Vue and Svelte retain nested template expressions and select TypeScript or SCSS from script and style attributes.
+- Unsupported embedded languages retain plain text. SCSS and Less comments preserve their boundaries in inherited CSS rules.
+
+- Token markup reuses validated styles within each render call. Text without HTML delimiters avoids repeated escape replacements.
+- Theme stylesheets preserve primary-token, first-alias, and overlapping diff color priority in class mode.
+
+- JavaScript and TypeScript templates retain nested interpolation boundaries and tokenize expression bodies.
+- Comments, strings, and regex literals no longer compete for text inside another lexical context.
+- JSX and TSX preserve body text and tokenize nested attribute and child expressions.
+- TSX retains TypeScript tokens inside expressions and supports generic components with nested type arguments.
+- TypeScript generic calls support nested type arguments without a fixed regex depth.
+- Unicode identifiers, member names, decimal points, numeric separators, and BigInt suffixes retain their token boundaries.
+- Incomplete templates, strings, and JSX attributes retain source text without delimiter backtracking.
+
+### Added
+
+- Reviewed Python, CSS, HTML, Vue, and Svelte span fixtures, plus built Markdown integration and resource checks.
+
+- Optional class output shares a theme stylesheet across blocks and omits generated style attributes.
+- Runtime measurements report startup, heap, and output costs through `lpm run bench:efficiency`.
+
+- Reviewed source-span fixtures for JavaScript, TypeScript, JSX, and TSX.
+- An optional read-only nesting context for custom token matchers.
+- Scanner cases in the timeout, scaling, and heap-limit checks.
+
+Token trees inside templates and JSX now contain additional expression tokens.
+Consumers that inspect token trees must account for these nested tokens.
+The outer JavaScript template token remains `string` with the `template-string` alias.
+Python f-strings, CSS selectors, attributes, and embedded bodies also contain additional nested tokens.
+HTML, Vue, and Svelte imports now include their supported embedded grammars, which increases bundle size and parsing work.
+See [grammar coverage](./docs/grammar-accuracy.md) for behavior and limits.
 
 ## [1.3.0] - 2026-08-25
 
