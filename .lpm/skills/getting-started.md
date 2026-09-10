@@ -1,7 +1,7 @@
 ---
 name: getting-started
 description: Use neo.highlight with React, vanilla JavaScript, the core API, built-in grammars, themes, SSR, and line highlighting
-version: "1.3.0"
+version: "1.4.0"
 globs:
   - "**/*.ts"
   - "**/*.tsx"
@@ -13,7 +13,7 @@ globs:
 
 ## Overview
 
-neo.highlight is a synchronous, tree-shakeable syntax highlighter. It has a ~3.8 KB gzipped core, 55 languages, 10 themes, and React and vanilla adapters.
+neo.highlight is a synchronous, tree-shakeable syntax highlighter. It provides 55 languages, 10 themes, and React and vanilla adapters.
 
 ## React API
 
@@ -260,7 +260,8 @@ const themeCSS = getThemeStylesheet(githubDark);
 
 ## SSR & Edge Runtimes
 
-neo.highlight is fully synchronous — no async init, no WASM, no DOM required. Works in Node.js, Deno, Bun, Cloudflare Workers, Vercel Edge.
+Core tokenization and rendering are synchronous. They require no async initialization, WASM, or DOM.
+The worker client provides a separate Promise API.
 
 ### Next.js Server Components (zero client JS)
 
@@ -319,7 +320,24 @@ import {
 
 Each grammar has `name`, optional `aliases` (e.g., `["js", "mjs"]` for JavaScript), and `tokens`.
 
-Framework grammars extend base grammars: Svelte/Vue/Astro/Handlebars extend HTML, Less extends CSS, Objective-C extends C.
+JavaScript and TypeScript templates contain nested expression tokens. JSX and TSX separate body text from code expressions.
+The TSX grammar retains TypeScript rules inside attributes and child expressions. Use `tsx` for generic JSX components.
+The outer template token remains `string` with the `template-string` alias. Token consumers must traverse nested `content` arrays.
+Function and class expressions preserve division context in the covered grammar fixtures.
+Escaped identifier spellings retain complete spans. TSX generic arrows support comments and constraints.
+The existing resource limits apply to these expression grammars.
+
+Python f-strings support nested expressions, format fields, conversions, and Python 3.12 quote reuse.
+CSS supports multiline selectors, declaration boundaries, escaped identifiers, and protected strings and URLs.
+
+HTML includes JavaScript, JSON, and CSS rules for embedded bodies.
+Vue and Svelte also include TypeScript and SCSS rules, selected by script and style attributes.
+Unsupported embedded languages retain plain text.
+These grammars increase bundle size and contain additional nested tokens.
+HTML script bodies track escaped states. Incomplete Vue interpolations retain their active expression context.
+See `docs/grammar-accuracy.md` for token shapes, language selection, and known limits.
+
+Astro and Handlebars extend HTML. Less extends CSS, and Objective-C extends C.
 
 Custom grammars use a `Grammar` object with `name` and `tokens`.
 
@@ -349,158 +367,30 @@ resolveGrammar("unknown", grammars); // → null
 
 Checks grammar `name` and `aliases`. The lookup ignores case and surrounding whitespace. It returns the `Grammar` object or `null`.
 
-## Themes (10 Built-in, WCAG AA Compliant)
+See [themes and rendering](./themes-and-rendering.md) for the remaining APIs.
 
-```typescript
-import {
-  githubDark,
-  githubLight,
-  oneDark,
-  dracula,
-  nord,
-  monokai,
-  solarizedLight,
-  solarizedDark,
-  nightOwl,
-  tokyoNight,
-} from "@lpm.dev/neo.highlight/themes";
+## Background highlighting
 
-// Or individual imports
-import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
-```
+Import `installHighlightWorker` from `@lpm.dev/neo.highlight/worker/core` in an application worker module.
+Pass `self` and `{ grammars: [javascript] }`. Import each selected grammar in that module.
+Import `createHighlightWorkerClient` from `@lpm.dev/neo.highlight/worker/client` in the application.
+Supply a `createWorker` factory that returns a fresh dedicated module worker.
 
-### Custom Themes
+`client.tokenize(code, language, options)` returns a token Promise.
+Request options include `signal`, `key`, `timeoutMs`, and tokenizer limits.
+Handle rejected Promises, including cancellation. When its owning view closes, dispose the client.
 
-```typescript
-import type { Theme } from "@lpm.dev/neo.highlight";
+The client defaults to 32 pending requests, 1,000,000 pending source units, and a 5,000 ms queue-inclusive deadline.
+Active aborts and deadlines terminate the worker. Unrelated queued requests retain their deadlines and continue in a replacement worker.
+The automatic `/worker` entry and its message protocol remain available.
+See `docs/workers.md` for worker ceilings, lifecycle errors, Node transport adapters, and synchronous Markdown integration limits.
 
-const myTheme: Theme = {
-  name: "my-theme",
-  background: "#1a1b26",
-  foreground: "#c0caf5",
-  tokenColors: {
-    comment: "#565f89",
-    keyword: "#bb9af7",
-    string: "#9ece6a",
-    number: "#ff9e64",
-    function: "#7aa2f7",
-    operator: "#89ddff",
-    // ... additional token types as needed
-  },
-};
-```
+## Experimental incremental processing
 
-Themes use CSS custom properties (`--neo-hl-*`). Each theme is < 1KB. All 10 built-in themes pass WCAG AA (4.5:1 contrast ratio for all token colors against their background).
-
-### Theme Accessibility — `validateThemeContrast()`
-
-Validate that all token colors in a theme meet WCAG AA contrast requirements:
-
-```typescript
-import { validateThemeContrast } from "@lpm.dev/neo.highlight";
-import { dracula } from "@lpm.dev/neo.highlight/themes/dracula";
-
-const report = validateThemeContrast(dracula);
-// {
-//   passed: true,
-//   theme: "dracula",
-//   results: [{ token: "keyword", ratio: 5.2, required: 4.5, pass: true }, ...]
-// }
-
-if (!report.passed) {
-  const failures = report.results.filter((r) => !r.pass);
-  console.warn("Failing tokens:", failures);
-}
-```
-
-### Contrast Utilities
-
-```typescript
-import {
-  contrastRatio,
-  meetsWCAG_AA,
-  hexToRGB,
-  relativeLuminance,
-} from "@lpm.dev/neo.highlight";
-
-// Calculate a contrast ratio (1 to 21)
-contrastRatio("#ff79c6", "#282a36"); // → 5.2
-
-// Check WCAG AA compliance
-meetsWCAG_AA("#ff79c6", "#282a36"); // → true
-meetsWCAG_AA("#ff79c6", "#282a36", true); // → true (large text, 3:1 threshold)
-
-// Lower-level utilities
-hexToRGB("#ff79c6"); // → [255, 121, 198]
-relativeLuminance(255, 121, 198); // → 0.318 (WCAG 2.0 relative luminance)
-```
-
-### Dual Theme (Light/Dark) — `getDualThemeStylesheet()`
-
-Generate CSS with both light and dark theme variables:
-
-```typescript
-import { getDualThemeStylesheet } from "@lpm.dev/neo.highlight";
-import { githubLight } from "@lpm.dev/neo.highlight/themes/github-light";
-import { githubDark } from "@lpm.dev/neo.highlight/themes/github-dark";
-
-// Media query approach (default) — uses prefers-color-scheme
-const css = getDualThemeStylesheet(githubLight, githubDark);
-// Light theme is default, dark theme activates via @media (prefers-color-scheme: dark)
-
-// Class-based approach — for manual theme toggle
-const css2 = getDualThemeStylesheet(githubLight, githubDark, {
-  darkSelector: ".dark",
-});
-// Light theme is default, dark theme activates when .dark class is present
-```
-
-Inject the returned CSS into a `<style>` tag. Works with SSR — no client-side JS needed for the media query approach.
-
-## Line & Diff Highlighting
-
-```typescript
-// Highlight specific lines
-renderToHTML(tokens, {
-  theme: githubDark,
-  highlightLines: [2, 3, 4], // 1-indexed
-});
-
-// Diff markers with colored gutters
-renderToHTML(tokens, {
-  theme: githubDark,
-  diffHighlight: {
-    added: [1, 2], // Green background + "+" gutter
-    removed: [5], // Red background + "-" gutter
-    modified: [8], // Yellow background + "~" gutter
-  },
-});
-```
-
-## Language Auto-Detection
-
-```typescript
-import { detectLanguage } from "@lpm.dev/neo.highlight";
-import { javascript, python, rust } from "@lpm.dev/neo.highlight/grammars";
-
-const result = detectLanguage(code, [javascript, python, rust]);
-if (result) {
-  console.log(result.grammar.name); // 'python'
-  console.log(result.score); // 0.72
-  console.log(result.candidates); // all scored grammars
-}
-```
-
-The base score uses keyword density, coverage, diversity, and high-value tokens. Language profiles add positive and negative syntax evidence.
-
-The 100-entry cache key includes the sample and the complete grammar structure. Samples longer than 10000 units bypass the cache.
-
-Prefer explicit `class="language-*"` attributes. Use auto-detection only as a fallback.
-
-## Tree-Shaking
-
-Import only what you need. Only the worker entry is side-effectful, so bundlers can eliminate unused grammars and themes. Core + 1 grammar ≈ 4.2 KB gzipped.
-
-## TypeScript Types
-
-All types exported from main entry: `Token`, `TokenNode`, `Grammar`, `Theme`, `RenderOptions`, `DetectResult`, `DiffHighlight`, `ContrastResult`, `ThemeContrastReport`. React types from `/react`, vanilla types from `/vanilla`.
+Import the optional APIs from `@lpm.dev/neo.highlight/experimental`.
+`createJavaScriptStream` supports JavaScript and TypeScript chunks. `createJavaScriptDocument` supports revision-checked edits.
+Apply their patches with `applyJavaScriptTokenUpdate`. Dispose each session after use.
+The default stream preview highlights the mutable suffix. Every accepted prefix matches complete-input tokenization.
+Session limits include cumulative match, node, update, and work budgets.
+`createJavaScriptSessionHandler` uses a separate worker protocol. The whole-input worker client does not route these session requests.
+Read `docs/incremental.md` for options, cleanup, checkpoints, and protocol ownership.

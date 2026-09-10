@@ -15,6 +15,7 @@ import type {
   TokenDefinition,
   TokenNode,
   TokenPattern,
+  TokenMatcherContext,
   TokenizeOptions,
 } from "./types";
 import { normalizeGrammarIdentifier } from "./grammar-utils";
@@ -38,6 +39,17 @@ export function tokenize(
   grammar: Grammar,
   options: TokenizeOptions = {},
 ): Token[] {
+  return tokenizeInternal(code, grammar, options);
+}
+
+/** Internal accounting for sessions. The package entry does not export this helper. */
+export function tokenizeWithMetrics(code: string, grammar: Grammar, options: TokenizeOptions): { tokens: Token[]; matchCount: number; tokenCount: number } {
+  const metrics = { matchCount: 0, tokenCount: 0 };
+  const tokens = tokenizeInternal(code, grammar, options, metrics);
+  return { tokens, ...metrics };
+}
+
+function tokenizeInternal(code: string, grammar: Grammar, options: TokenizeOptions, metrics?: { matchCount: number; tokenCount: number }): Token[] {
   const maxInputLength = options.maxInputLength ?? DEFAULT_MAX_INPUT_LENGTH;
   const maxMatchCount = options.maxMatchCount ?? DEFAULT_MAX_MATCH_COUNT;
   const maxTokenCount = options.maxTokenCount ?? DEFAULT_MAX_TOKEN_COUNT;
@@ -62,6 +74,7 @@ export function tokenize(
     tokenCount: 0,
   };
   matchGrammar(tokens, grammar.tokens, 0, context);
+  if (metrics) { metrics.matchCount = context.matchCount; metrics.tokenCount = context.tokenCount; }
   return tokens;
 }
 
@@ -148,6 +161,8 @@ function matchGrammar(
     );
   }
 
+  const matcherContext: TokenMatcherContext = { depth, maxTokenDepth: context.maxTokenDepth };
+
   for (const { tokenType, patterns } of compileGrammarTokens(grammarTokens)) {
     for (const patternObj of patterns) {
       const regex = ensureGlobal(patternObj.pattern);
@@ -159,6 +174,7 @@ function matchGrammar(
         tokenType,
         depth,
         context,
+        matcherContext,
       );
     }
   }
@@ -184,8 +200,9 @@ function applyPattern(
   tokenType: string,
   depth: number,
   context: TokenizeContext,
+  matcherContext: TokenMatcherContext,
 ): void {
-  const matches = getSourceMatches(source, regex, patternObj)[Symbol.iterator]();
+  const matches = getSourceMatches(source, regex, patternObj, matcherContext)[Symbol.iterator]();
   let nextMatch = matches.next();
   if (nextMatch.done) return;
 
@@ -296,10 +313,11 @@ function* getSourceMatches(
   source: string,
   regex: RegExp,
   patternObj: TokenPattern,
+  context: TokenMatcherContext,
 ): Iterable<SourceMatch> {
   if (patternObj.matcher) {
     let previousEnd = 0;
-    for (const match of patternObj.matcher(source)) {
+    for (const match of patternObj.matcher(source, context)) {
       if (
         !Number.isInteger(match.index) ||
         match.index < 0 ||
@@ -485,16 +503,18 @@ export function getPlainText(
   const activeNodes = new Set<TokenNode>();
   let tokenCount = 0;
   const walk = (items: Token[], depth: number): string => {
-    if (depth > maxTokenDepth) {
-      throw new RangeError(
-        `Token nesting exceeds maxTokenDepth ${maxTokenDepth}`,
-      );
-    }
     const text: string[] = [];
     for (const item of items) {
       if (typeof item === "string") {
         text.push(item);
         continue;
+      }
+      // Count structured nodes like the renderer. A string array inside a
+      // leaf token does not add another structured-token level.
+      if (depth > maxTokenDepth) {
+        throw new RangeError(
+          `Token nesting exceeds maxTokenDepth ${maxTokenDepth}`,
+        );
       }
       if (activeNodes.has(item)) {
         throw new TypeError("Token tree contains a cycle");

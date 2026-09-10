@@ -19,3 +19,6 @@ PLAN
 .lpm/install-hash
 .lpm/overrides-state.json
 .lpm/trust-snapshot.json
+
+# Local research and roadmap documents
+research/

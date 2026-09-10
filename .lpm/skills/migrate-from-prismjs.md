@@ -1,7 +1,7 @@
 ---
 name: migrate-from-prismjs
 description: Migration guide from Prism.js to neo.highlight — global Prism object to tree-shakeable imports, grammar compatibility, theme mapping, autoloader to explicit imports, plugin replacements (line-numbers, line-highlight, copy-to-clipboard built-in), WCAG AA theme compliance, dual theme support, resolveGrammar for alias lookup, plus comparison with highlight.js, react-syntax-highlighter, and Shiki
-version: "1.3.0"
+version: "1.4.0"
 globs:
   - "**/*.ts"
   - "**/*.tsx"
@@ -17,7 +17,7 @@ globs:
 | -------------------- | ------------------------------- | ------------------------------ |
 | **ESM**              | No (global `Prism` object)      | Yes, tree-shakeable            |
 | **TypeScript**       | No (community `@types`)         | Full types, zero `any`         |
-| **Bundle**           | 6 KB core + plugins + languages | 3.8 KB core, all included      |
+| **Bundle**           | Depends on imports and plugins | Depends on grammars and adapters |
 | **React**            | Community plugins               | First-class adapter            |
 | **SSR**              | Global mutation required        | Pure functions, no DOM         |
 | **Tree-shaking**     | Not possible                    | Per-grammar, per-theme imports |
@@ -202,7 +202,7 @@ import { oneDark, githubDark } from "@lpm.dev/neo.highlight/themes";
 highlight(code, javascript, { theme: isDark ? oneDark : githubLight });
 ```
 
-Themes are < 1KB each (JS objects with color values) vs Prism's CSS files.
+Neo themes use JavaScript objects with color values. Generate CSS with `getThemeStylesheet()`.
 
 ### WCAG AA Theme Compliance
 
@@ -358,7 +358,7 @@ import { highlight } from "@lpm.dev/neo.highlight/vanilla";
 highlight(code, javascript, { theme: githubDark });
 ```
 
-Advantage: highlight.js loads all languages by default (~180 KB). neo.highlight tree-shakes — core + 1 grammar ≈ 4.2 KB.
+Both packages support selected language imports. Measure the application bundle with its actual imports.
 
 ### react-syntax-highlighter
 
@@ -371,7 +371,7 @@ import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
   {code}
 </SyntaxHighlighter>;
 
-// neo.highlight — lighter, no wrapper overhead
+// neo.highlight React adapter
 import { Highlight } from "@lpm.dev/neo.highlight/react";
 import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
 import { oneDark } from "@lpm.dev/neo.highlight/themes/one-dark";
@@ -381,24 +381,37 @@ import { oneDark } from "@lpm.dev/neo.highlight/themes/one-dark";
 </Highlight>;
 ```
 
-Advantage: react-syntax-highlighter wraps Prism/hljs internally with 50KB+ theme CSS. neo.highlight themes are < 1KB JS objects.
+The Neo React adapter uses the same tokenizer and renderer as the core package. Theme and adapter imports affect bundle size.
 
 ### Shiki
 
 ```typescript
-// Shiki — async, WASM-based
+import { createHighlighter } from "shiki";
+
+// Shiki's default engine uses Oniguruma WASM.
 const highlighter = await createHighlighter({
   themes: ["nord"],
   langs: ["js"],
 });
-const html = highlighter.codeToHtml(code, { lang: "js", theme: "nord" });
+const shikiHtml = highlighter.codeToHtml(code, { lang: "js", theme: "nord" });
 
 // neo.highlight — synchronous, no WASM
 import { highlight } from "@lpm.dev/neo.highlight/vanilla";
-const html = highlight(code, javascript, { theme: nord });
+import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
+import { nord } from "@lpm.dev/neo.highlight/themes/nord";
+const neoHtml = highlight(code, javascript, { theme: nord });
 ```
 
-Advantage: Shiki requires async WASM initialization — doesn't work in Cloudflare Workers or other edge runtimes without workarounds. neo.highlight is fully synchronous, works everywhere.
+Shiki also provides a JavaScript regex engine that does not require WASM.
+With explicit language and theme objects, `createHighlighterCoreSync` provides synchronous setup.
+Its initialized instance methods are synchronous with either engine.
+Shiki supports edge deployments with suitable engine and bundle configuration.
+
+Neo uses its own grammars and token types. TextMate grammars, Shiki transformers, and Shiki theme rules are not interchangeable with Neo equivalents.
+Compare nested expressions and embedded languages before migration.
+Both packages can generate HTML on the server without browser highlighting JavaScript.
+
+Use the [Shiki engine guide](https://shiki.style/guide/regex-engines) and [synchronous usage guide](https://shiki.style/guide/sync-usage) for its current configuration options.
 
 ## Checklist
 

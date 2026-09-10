@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  LPM_VERSION: "0.75.0"
+  LPM_VERSION: "0.76.5"
 
 jobs:
   verify:
@@ -23,15 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - node: "18.20.8"
-            # A development dependency declares Node 20, but the package still
-            # supports Node 18. The remaining steps test that runtime contract.
-            install_args: "--no-engine-strict"
-          - node: "22"
-            install_args: ""
-          - node: "24"
-            install_args: ""
+        node: ["18.20.8", "22", "24", "26"]
 
     steps:
       - name: Check out the repository
@@ -40,18 +32,20 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: ${{ matrix.node }}
+          node-version: ${{ matrix.node == '18.20.8' && '24' || matrix.node }}
 
       - name: Install LPM
         run: npm install --global "@lpm-registry/cli@${LPM_VERSION}"
 
       - name: Install the locked dependencies
         run: >-
-          lpm ci --strict-integrity --no-skills --no-editor-setup --no-security-summary
-          ${{ matrix.install_args }}
+          lpm ci --strict-integrity --no-skills --no-editor-setup --no-security-summary --policy=deny
 
       - name: Make sure that the lockfile is unchanged
         run: git diff --exit-code -- package.json lpm.lock
+
+      - name: Check release metadata
+        run: lpm run check:release-metadata
 
       - name: Check the types
         run: lpm run type-check
@@ -62,11 +56,25 @@ jobs:
       - name: Build the package
         run: lpm run build
 
+      - name: Select the supported consumer runtime
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: ${{ matrix.node }}
+
       - name: Check adversarial regular-expression performance
         run: lpm run test:regex-safety
 
+      - name: Check bounded resource use
+        run: lpm run test:resource-safety
+
       - name: Test the built ESM and CommonJS packages
         run: lpm run test:package
+
+      - name: Test worker lifecycle and bundled entries
+        run: |
+          lpm run test:workers
+          lpm run check:worker-bundles
+          lpm run test:incremental-workers
 
   quality:
     name: Coverage, benchmarks, audit, and package check
@@ -86,10 +94,13 @@ jobs:
         run: npm install --global "@lpm-registry/cli@${LPM_VERSION}"
 
       - name: Install the locked dependencies
-        run: lpm ci --strict-integrity --no-skills --no-editor-setup --no-security-summary
+        run: lpm ci --strict-integrity --no-skills --no-editor-setup --no-security-summary --policy=deny
 
       - name: Audit the dependencies
         run: lpm run security:audit
+
+      - name: Audit registry signatures
+        run: lpm run security:signatures
 
       - name: Measure the test coverage
         run: lpm run test:coverage

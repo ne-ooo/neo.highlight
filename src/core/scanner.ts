@@ -61,6 +61,7 @@ function highlightElement(
   allLanguages: Grammar[],
   options: {
     theme?: Theme | undefined;
+    styleMode?: "inline" | "class" | undefined;
     lineNumbers?: boolean | undefined;
     classPrefix?: string | undefined;
     autoDetect?: boolean | undefined;
@@ -117,6 +118,7 @@ function highlightElement(
   });
   const html = renderToHTML(tokens, {
     theme: options.theme,
+    styleMode: options.styleMode,
     lineNumbers: options.lineNumbers,
     classPrefix: options.classPrefix,
     wrapCode: false, // We're inside an existing <code>, don't wrap again
@@ -142,7 +144,7 @@ function highlightElement(
   state.source = code;
   state.renderedHTML = element.innerHTML;
   highlightedElements.set(element, state);
-  applyElementTheme(element, options.theme, state);
+  applyElementTheme(element, options.styleMode === "class" ? undefined : options.theme, state);
 
   return true;
 }
@@ -319,6 +321,7 @@ export function scan(options: ScanOptions): number {
     selector = DEFAULT_SELECTOR,
     languages,
     theme,
+    styleMode,
     lineNumbers = false,
     container,
     classPrefix = DEFAULT_CLASS_PREFIX,
@@ -350,6 +353,7 @@ export function scan(options: ScanOptions): number {
       languages,
       {
         theme: resolvedTheme,
+        styleMode,
         lineNumbers,
         classPrefix,
         autoDetect,
@@ -380,6 +384,7 @@ export function observe(options: ScanOptions): () => void {
     selector = DEFAULT_SELECTOR,
     languages,
     theme,
+    styleMode,
     lineNumbers = false,
     container,
     classPrefix = DEFAULT_CLASS_PREFIX,
@@ -411,6 +416,7 @@ export function observe(options: ScanOptions): () => void {
 
   const highlightOpts = {
     theme: resolvedTheme,
+    styleMode,
     lineNumbers,
     classPrefix,
     autoDetect,

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { DiffHighlight, Grammar, RenderOptions, Token } from "../core/types";
+import type { DiffHighlight, HighlightRange, RenderHooks, Grammar, RenderOptions, Token } from "../core/types";
 import { tokenize } from "../core/tokenizer";
 import { renderToHTML } from "../core/renderer";
 import { useHighlightContext } from "./context";
@@ -10,8 +10,13 @@ import {
 
 export interface UseHighlightOptions {
   theme?: RenderOptions["theme"];
+  /** Class output requires the matching theme stylesheet. */
+  styleMode?: "inline" | "class";
   lineNumbers?: boolean;
   highlightLines?: number[];
+  highlightRanges?: readonly HighlightRange[];
+  startLine?: number;
+  hooks?: RenderHooks;
   /** Line diff highlighting (added/removed/modified lines) */
   diffHighlight?: DiffHighlight;
   classPrefix?: string;
@@ -52,8 +57,12 @@ export function useHighlight(
 
   const {
     theme = ctx.theme,
+    styleMode,
     lineNumbers = ctx.lineNumbers,
     highlightLines,
+    highlightRanges,
+    startLine,
+    hooks,
     diffHighlight,
     classPrefix = ctx.classPrefix,
     wrapCode = false,
@@ -88,8 +97,10 @@ export function useHighlight(
     () =>
       renderToHTML(tokens, {
         theme,
+        styleMode,
         lineNumbers,
-        highlightLines: stableHighlightLines,
+        startLine, hooks, highlightRanges,
+      highlightLines: stableHighlightLines,
         diffHighlight: stableDiffHighlight,
         language: language.name,
         classPrefix,
@@ -102,8 +113,10 @@ export function useHighlight(
     [
       tokens,
       theme,
+      styleMode,
       lineNumbers,
-      stableHighlightLines,
+      startLine, hooks, highlightRanges,
+    stableHighlightLines,
       stableDiffHighlight,
       language.name,
       classPrefix,

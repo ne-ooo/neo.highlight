@@ -8,6 +8,7 @@ export interface AutoHighlightProps {
   children: React.ReactNode;
   languages?: Grammar[];
   theme?: Theme | string;
+  styleMode?: "inline" | "class";
   selector?: string;
   lineNumbers?: boolean;
   classPrefix?: string;
@@ -49,6 +50,7 @@ export function AutoHighlight({
   children,
   languages: languagesProp,
   theme: themeProp,
+  styleMode,
   selector = "pre code",
   lineNumbers: lineNumbersProp,
   classPrefix: classPrefixProp,
@@ -80,6 +82,7 @@ export function AutoHighlight({
       selector,
       languages: stableLanguages,
       theme,
+      styleMode,
       lineNumbers,
       container,
       classPrefix,
@@ -100,6 +103,7 @@ export function AutoHighlight({
     selector,
     stableLanguages,
     theme,
+    styleMode,
     lineNumbers,
     classPrefix,
     autoDetect,

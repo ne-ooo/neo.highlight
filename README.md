@@ -359,40 +359,44 @@ resource limits.
 
 ## Web Worker
 
-The worker entry tokenizes source outside the main thread. It includes all
-built-in grammars.
-
-Create a worker module:
+Create a worker module with the grammars that the application needs:
 
 ```typescript
-import "@lpm.dev/neo.highlight/worker";
+import { installHighlightWorker } from "@lpm.dev/neo.highlight/worker/core";
+import { javascript } from "@lpm.dev/neo.highlight/grammars/javascript";
+
+installHighlightWorker(self, { grammars: [javascript] });
 ```
 
-Create and use that worker from the application:
+Use the Promise client from the application:
 
 ```typescript
-const worker = new Worker(new URL("./highlight-worker.ts", import.meta.url), {
-  type: "module",
+import { createHighlightWorkerClient } from "@lpm.dev/neo.highlight/worker/client";
+
+const client = createHighlightWorkerClient({
+  createWorker: () => new Worker(new URL("./highlight-worker.ts", import.meta.url), {
+    type: "module",
+  }),
 });
 
-worker.postMessage({
-  id: 1,
-  code: "const value = 42;",
-  language: "javascript",
-  maxInputLength: 100000,
-});
-
-worker.addEventListener("message", (event) => {
-  if (event.data.ok) {
-    console.log(event.data.tokens);
-  } else {
-    console.error(event.data.error);
-  }
-});
+try {
+  const tokens = await client.tokenize("const value = 42;", "js", {
+    key: "preview",
+    timeoutMs: 3000,
+  });
+  console.log(tokens);
+} finally {
+  client.dispose();
+}
 ```
 
-The worker accepts built-in language names and aliases. Every response includes
-the request `id`.
+Reuse the client across requests. It bounds pending work and supports aborts, replacement by key, deadlines, and worker recovery.
+Active cancellation terminates the worker. The next request creates a fresh worker.
+
+The existing `import "@lpm.dev/neo.highlight/worker"` module still loads every built-in grammar and installs its listener automatically.
+Its request IDs, response fields, and exported handler remain compatible.
+
+See [background highlighting](./docs/workers.md) for queue limits, ownership, errors, and integration examples.
 
 ## Resource limits
 
@@ -736,18 +740,24 @@ code.
 
 ## Package entry points
 
+The optional [experimental incremental APIs](./docs/incremental.md) support JS/TS streaming, edits, and worker sessions.
+Streaming highlights provisional suffixes by default and preserves complete-input token output.
+
 | Import                                       | Purpose                                                               |
 | -------------------------------------------- | --------------------------------------------------------------------- |
 | `@lpm.dev/neo.highlight`                     | Tokenizer, renderer, themes, detection, scanner utilities, and types. |
 | `@lpm.dev/neo.highlight/react`               | React components, hooks, and types.                                   |
 | `@lpm.dev/neo.highlight/vanilla`             | Browser highlighting and DOM scanning.                                |
-| `@lpm.dev/neo.highlight/worker`              | Worker message handler with all built-in grammars.                    |
+| `@lpm.dev/neo.highlight/worker`              | Automatic worker handler with all built-in grammars.                  |
+| `@lpm.dev/neo.highlight/worker/core`         | Selected-grammar handler factory and listener installation.           |
+| `@lpm.dev/neo.highlight/worker/client`       | Promise client with bounded queues, cancellation, and deadlines.      |
+| `@lpm.dev/neo.highlight/experimental`        | Experimental JS/TS streams, edit sessions, and token updates.          |
 | `@lpm.dev/neo.highlight/grammars`            | All grammar exports.                                                  |
 | `@lpm.dev/neo.highlight/grammars/<language>` | One grammar.                                                          |
 | `@lpm.dev/neo.highlight/themes`              | All theme exports.                                                    |
 | `@lpm.dev/neo.highlight/themes/<theme>`      | One theme.                                                            |
 
-The worker entry is side-effectful. Other entry points support unused-export
+The automatic worker entry is side-effectful. Other entry points support unused-export
 removal by bundlers.
 
 ## License
