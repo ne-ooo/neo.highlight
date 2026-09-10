@@ -29,8 +29,8 @@ The release gate includes metadata, vulnerability and signature audits, types, c
 ## Runtime and release checks
 
 CI checks Node.js 18.20.8, 22, 24, and 26.
-The Node 18 development install uses `--no-engine-strict` because some test dependencies require a newer runtime.
-Runtime tests still run on Node 18.
+The Node 18 job installs dependencies, runs unit tests, and builds with Node 24 because Vitest requires a newer runtime.
+Built package, resource, regular-expression, and worker checks run on Node 18.
 The package has no production dependencies.
 
 Keep `package.json`, each skill version, and the changelog version in agreement.
