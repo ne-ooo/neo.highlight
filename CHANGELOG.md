@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.4.1] - 2026-10-21
+
+- Rebuild the package with the current source-preserving line renderer.
+
 ## [1.4.0] - Unreleased
 
 - Update Vitest to 4.1.11 for GHSA-82fw-gwwq-j7x9. Built package and worker checks retain Node 18 coverage.
