@@ -1,7 +1,7 @@
 ---
 name: themes-and-rendering
 description: Theme stylesheets, line and diff display, render hooks, word selections, and output options
-version: "1.4.0"
+version: "1.4.1"
 globs:
   - "**/*.ts"
   - "**/*.tsx"
