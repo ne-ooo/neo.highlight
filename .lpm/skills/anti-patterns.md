@@ -1,7 +1,7 @@
 ---
 name: anti-patterns
 description: Common mistakes when using neo.highlight — auto-detect unreliable for short or ambiguous code, grammar token order matters, greedy flag omission breaks multi-line tokens, applyTheme no-op in SSR, MutationObserver cleanup leak, React context silent defaults, scan selector mismatch, shipping custom themes without contrast validation, building manual grammar alias maps
-version: "1.4.1"
+version: "1.4.2"
 globs:
   - "**/*.ts"
   - "**/*.tsx"

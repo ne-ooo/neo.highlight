@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.4.2] - 2026-11-08
+
+- Fix three grammar patterns that backtracked on crafted input. Highlighting output is unchanged.
+  - Bash double-quoted strings: a run of `$` variables in an unclosed string took exponential time.
+  - CSS identifiers, shared by the CSS, SCSS and Less grammars and by HTML, Vue, Svelte and Astro styles: a run of hex escapes followed by NBSP took exponential time.
+  - TOML numbers: a long run of underscore-separated digits took cubic time.
+- Add regex-safety cases that pump each pattern's ambiguous sequence. The existing cases repeat one unit per grammar, which did not contain these sequences.
+
 ## [1.4.1] - 2026-10-21
 
 - Rebuild the package with the current source-preserving line renderer.

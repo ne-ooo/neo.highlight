@@ -282,6 +282,46 @@ assert.equal(
   `Ruby lexical scanner failed:\n${rubyLexicalScannerResult.stderr || rubyLexicalScannerResult.stdout}`,
 );
 
+// The cases above repeat one unit per grammar, which never contains the
+// sequences these patterns had two readings of. Each input here pumps that
+// sequence: an unclosed bash string of "$00" names, a run of CSS hex escapes
+// followed by NBSP, and a TOML number of underscore-separated digits. The old
+// patterns took seconds to hours at these sizes. Each runs in its own
+// subprocess, so one that hangs can't hide the others.
+const backtrackingCases = [
+  ["bash $-names in an unclosed string", "bash", `'"$0' + '\\\\"$00\\\\"$0'.repeat(400) + '$"})"'`],
+  ["css hex escapes before NBSP", "css", `"a{b:G" + "\\u00a0\\\\000A0".repeat(400) + "\\u0000}"`],
+  ["scss hex escapes before NBSP", "scss", `"a{b:G" + "\\u00a0\\\\000A0".repeat(400) + "\\u0000}"`],
+  ["less hex escapes before NBSP", "less", `"a{b:G" + "\\u00a0\\\\000A0".repeat(400) + "\\u0000}"`],
+  ["css hex escapes in an at-rule", "css", `"@x G" + "\\u00a0\\\\A00A0A".repeat(400) + "\\u0000 {}"`],
+  ["toml underscored digits", "toml", `"a = G" + "8_8".repeat(1000) + "_" + "8_".repeat(1000) + "i1"`],
+];
+// Each case runs to the end, so one that hangs can't hide the others' results.
+const backtrackingFailures = [];
+for (const [name, grammar, code] of backtrackingCases) {
+  const source = `
+    import { performance } from "node:perf_hooks";
+    import { tokenize } from "./dist/index.js";
+    import { ${grammar} as grammar } from "./dist/grammars/index.js";
+    const code = ${code};
+    const start = performance.now();
+    tokenize(code, grammar, { maxInputLength: code.length, maxMatchCount: Infinity, maxTokenCount: Infinity });
+    const elapsed = performance.now() - start;
+    if (elapsed > ${MAX_LARGE_RUN_MS}) throw new Error(\`took \${elapsed.toFixed(1)}ms\`);
+  `;
+  const result = spawnSync(process.execPath, ["--input-type=module", "--eval", source], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    timeout: TIMEOUT_MS,
+  });
+  if (result.error?.code !== undefined) {
+    backtrackingFailures.push(`${name} exceeded the ${TIMEOUT_MS}ms subprocess timeout`);
+  } else if (result.status !== 0) {
+    backtrackingFailures.push(`${name} failed:\n${result.stderr || result.stdout}`);
+  }
+}
+assert.deepEqual(backtrackingFailures, [], backtrackingFailures.join("\n"));
+
 const zeroWidthResult = spawnSync(
   process.execPath,
   ["--input-type=module", "--eval", zeroWidthSource],
