@@ -51,13 +51,15 @@ function expectSameMatches(current: RegExp, previous: RegExp, inputs: Iterable<s
 }
 
 describe("patterns rewritten to stop backtracking match as before", () => {
-  // Each place the identifier is composed, with and without the u flag.
-  const compositions: Array<[string, (identifier: string) => RegExp]> = [
-    ["function", (identifier) => new RegExp(String.raw`(^|[^\w-])${identifier}(?=\()`, "u")],
-    ["at-rule function", (identifier) => new RegExp(String.raw`${identifier}(?=\()`, "u")],
-    ["class name", (identifier) => new RegExp(String.raw`\.${identifier}`, "u")],
-    ["attribute name", (identifier) => new RegExp(String.raw`^(\[\s*)${identifier}`, "u")],
-    ["property", (identifier) => new RegExp(String.raw`^(${identifier})(?:\s|/\*[^*]*(?:\*(?!/)[^*]*)*\*/)*:`)],
+  // Each place the identifier is composed, with and without the u flag, and
+  // the text its inputs start with: an anchored pattern only meets random text
+  // that begins as it does.
+  const compositions: Array<[string, (identifier: string) => RegExp, string]> = [
+    ["function", (identifier) => new RegExp(String.raw`(^|[^\w-])${identifier}(?=\()`, "u"), ""],
+    ["at-rule function", (identifier) => new RegExp(String.raw`${identifier}(?=\()`, "u"), ""],
+    ["class name", (identifier) => new RegExp(String.raw`\.${identifier}`, "u"), ""],
+    ["attribute name", (identifier) => new RegExp(String.raw`^(\[\s*)${identifier}`, "u"), "["],
+    ["property", (identifier) => new RegExp(String.raw`^(${identifier})(?:\s|/\*[^*]*(?:\*(?!/)[^*]*)*\*/)*:`), ""],
   ];
   const cssEdges = [
     "a{color:rgb(1,2,3)}",
@@ -79,10 +81,11 @@ describe("patterns rewritten to stop backtracking match as before", () => {
     "\ud83d\ude00\\41(",
   ];
 
-  it.each(compositions)("CSS identifier in the %s pattern", (_name, compose) => {
+  it.each(compositions)("CSS identifier in the %s pattern", (_name, compose, start) => {
+    const inputs = [...cssEdges, ...corpus("\\0aAfF9_- \t\n\r\f\v\u00a0\u2028\u3000\u0080(x{.[:", 20_000, 16, 7)];
     expectSameMatches(compose(CSS_IDENTIFIER), compose(OLD_CSS_IDENTIFIER), [
-      ...cssEdges,
-      ...corpus("\\0aAfF9_- \t\n\r\f\v\u00a0\u2028\u3000\u0080(x{.[:", 20_000, 16, 7),
+      ...inputs,
+      ...(start ? inputs.map((text) => start + text) : []),
     ]);
   });
 

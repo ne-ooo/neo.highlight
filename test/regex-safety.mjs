@@ -296,6 +296,8 @@ const backtrackingCases = [
   ["css hex escapes in an at-rule", "css", `"@x G" + "\\u00a0\\\\A00A0A".repeat(400) + "\\u0000 {}"`],
   ["toml underscored digits", "toml", `"a = G" + "8_8".repeat(1000) + "_" + "8_".repeat(1000) + "i1"`],
 ];
+// Each case runs to the end, so one that hangs can't hide the others' results.
+const backtrackingFailures = [];
 for (const [name, grammar, code] of backtrackingCases) {
   const source = `
     import { performance } from "node:perf_hooks";
@@ -312,9 +314,13 @@ for (const [name, grammar, code] of backtrackingCases) {
     encoding: "utf8",
     timeout: TIMEOUT_MS,
   });
-  assert.equal(result.error?.code, undefined, `${name} exceeded the ${TIMEOUT_MS}ms subprocess timeout`);
-  assert.equal(result.status, 0, `${name} failed:\n${result.stderr || result.stdout}`);
+  if (result.error?.code !== undefined) {
+    backtrackingFailures.push(`${name} exceeded the ${TIMEOUT_MS}ms subprocess timeout`);
+  } else if (result.status !== 0) {
+    backtrackingFailures.push(`${name} failed:\n${result.stderr || result.stdout}`);
+  }
 }
+assert.deepEqual(backtrackingFailures, [], backtrackingFailures.join("\n"));
 
 const zeroWidthResult = spawnSync(
   process.execPath,
