@@ -282,6 +282,52 @@ assert.equal(
   `Ruby lexical scanner failed:\n${rubyLexicalScannerResult.stderr || rubyLexicalScannerResult.stdout}`,
 );
 
+// The cases above repeat one unit per grammar, which never contains the
+// sequences these patterns had two readings of. Each input here pumps that
+// sequence: an unclosed bash string of "$00" names, a run of CSS hex escapes
+// followed by NBSP, and a TOML number of underscore-separated digits. The old
+// patterns took seconds to hours at these sizes.
+const backtrackingSource = `
+  import { performance } from "node:perf_hooks";
+  import { tokenize } from "./dist/index.js";
+  import { bash, css, scss, less, toml } from "./dist/grammars/index.js";
+  const cases = [
+    ["bash $-names in an unclosed string", bash, '"$0' + '\\\\"$00\\\\"$0'.repeat(400) + '$"})"'],
+    ["css hex escapes before NBSP", css, "a{b:G" + "\\u00a0\\\\000A0".repeat(400) + "\\u0000}"],
+    ["scss hex escapes before NBSP", scss, "a{b:G" + "\\u00a0\\\\000A0".repeat(400) + "\\u0000}"],
+    ["less hex escapes before NBSP", less, "a{b:G" + "\\u00a0\\\\000A0".repeat(400) + "\\u0000}"],
+    ["css hex escapes in an at-rule", css, "@x G" + "\\u00a0\\\\A00A0A".repeat(400) + "\\u0000 {}"],
+    ["toml underscored digits", toml, "a = G" + "8_8".repeat(400) + "_" + "8_".repeat(400) + "i1"],
+  ];
+  for (const [name, grammar, code] of cases) {
+    const start = performance.now();
+    tokenize(code, grammar, { maxInputLength: code.length, maxMatchCount: Infinity, maxTokenCount: Infinity });
+    const elapsed = performance.now() - start;
+    if (elapsed > ${MAX_LARGE_RUN_MS}) {
+      throw new Error(\`\${name} took \${elapsed.toFixed(1)}ms\`);
+    }
+  }
+`;
+const backtrackingResult = spawnSync(
+  process.execPath,
+  ["--input-type=module", "--eval", backtrackingSource],
+  {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    timeout: TIMEOUT_MS,
+  },
+);
+assert.equal(
+  backtrackingResult.error?.code,
+  undefined,
+  `Backtracking patterns exceeded the ${TIMEOUT_MS}ms subprocess timeout`,
+);
+assert.equal(
+  backtrackingResult.status,
+  0,
+  `Backtracking patterns failed:\n${backtrackingResult.stderr || backtrackingResult.stdout}`,
+);
+
 const zeroWidthResult = spawnSync(
   process.execPath,
   ["--input-type=module", "--eval", zeroWidthSource],

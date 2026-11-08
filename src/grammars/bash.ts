@@ -232,7 +232,10 @@ export const bash: Grammar = {
         },
       },
       {
-        pattern: /"(?:\\[\s\S]|\$(?:\([^()\r\n]+\)|\{[^{}\r\n]+\}|\w+)|[^\\$"\r\n])*"/,
+        // `\w+(?!\w)` keeps a variable name whole. Otherwise "$00" read as one
+        // name or as a shorter name and a literal, and an unclosed string of
+        // them backtracked exponentially.
+        pattern: /"(?:\\[\s\S]|\$(?:\([^()\r\n]+\)|\{[^{}\r\n]+\}|\w+(?!\w))|[^\\$"\r\n])*"/,
         greedy: true,
         inside: {
           interpolation: {

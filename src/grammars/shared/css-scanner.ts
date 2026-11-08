@@ -1,6 +1,14 @@
 import type { TokenMatcherContext } from "../../core/types";
 
-export const CSS_IDENTIFIER = String.raw`(?:--|-?(?:[_a-zA-Z\u0080-\uffff]|\\(?:[\da-fA-F]{1,6}\s?|[^\r\n\da-fA-F])))(?:[-\w\u0080-\uffff]|\\(?:[\da-fA-F]{1,6}\s?|[^\r\n\da-fA-F]))*`;
+// A hex escape reads as many hex digits as it can (up to six), and its optional
+// trailing space is ASCII whitespace only. Hex digits and non-ASCII whitespace
+// are identifier characters too, so letting the escape stop early, or claim a
+// following NBSP, gave every escape two equal readings and made a run of them
+// backtrack exponentially. Both choices cover the same text, so matches are
+// unchanged. There are no capture groups, so the pattern composes with and
+// without the u flag and leaves each caller's group numbers alone.
+const CSS_ESCAPE = String.raw`\\(?:[\da-fA-F]{6}[\t\n\v\f\r ]?|[\da-fA-F]{1,5}(?![\da-fA-F])[\t\n\v\f\r ]?|[^\r\n\da-fA-F])`;
+export const CSS_IDENTIFIER = String.raw`(?:--|-?(?:[_a-zA-Z\u0080-\uffff]|${CSS_ESCAPE}))(?:[-\w\u0080-\uffff]|${CSS_ESCAPE})*`;
 export interface CssRange { kind: "comment" | "string" | "url" | "atrule" | "selector" | "property"; start: number; end: number }
 
 export function cssQuotedEnd(source: string, start: number): number {

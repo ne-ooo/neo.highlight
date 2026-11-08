@@ -36,8 +36,11 @@ export const toml: Grammar = {
       alias: "number",
     },
     boolean: /\b(?:true|false)\b/,
+    // The fraction follows its dot. With the dot optional, the integer and
+    // fraction runs could split one digit run three ways, and a long number
+    // took cubic time.
     number:
-      /[+-]?(?:0x[\da-fA-F]+(?:_[\da-fA-F]+)*|0o[0-7]+(?:_[0-7]+)*|0b[01]+(?:_[01]+)*|(?:\d+(?:_\d+)*\.?\d*(?:_\d+)*|\.\d+(?:_\d+)*)(?:[eE][+-]?\d+(?:_\d+)*)?|inf|nan)\b/,
+      /[+-]?(?:0x[\da-fA-F]+(?:_[\da-fA-F]+)*|0o[0-7]+(?:_[0-7]+)*|0b[01]+(?:_[01]+)*|(?:\d+(?:_\d+)*(?:\.\d*(?:_\d+)*)?|\.\d+(?:_\d+)*)(?:[eE][+-]?\d+(?:_\d+)*)?|inf|nan)\b/,
     key: {
       pattern: /((?:^|[,{])[^\S\r\n]*)(?:"(?:\\[\s\S]|[^\\"\r\n])*"|'[^'\r\n]*'|[\w-]+)[^\S\r\n]*(?==)/m,
       lookbehind: true,
